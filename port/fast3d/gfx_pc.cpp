@@ -2741,6 +2741,11 @@ extern "C" void gfx_set_mipmap_filter(enum MipmapFilteringMode mode) {
     gfx_rapi->set_mipmap_filter(mode);
 }
 
+extern "C" void gfx_set_visual_restraint(float amount) {
+    reset_texture_state();
+    gfx_rapi->set_visual_restraint(amount);
+}
+
 extern "C" int gfx_create_framebuffer(uint32_t width, uint32_t height, int upscale, int autoresize) {
     int fb = gfx_rapi->create_framebuffer();
     gfx_resize_framebuffer(fb, width, height, upscale, autoresize);

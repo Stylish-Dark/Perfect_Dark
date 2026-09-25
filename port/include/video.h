@@ -51,6 +51,7 @@ s32 videoGetDisplayFPS(void);
 s32 videoGetMSAA(void);
 f32 videoGetGlareBrightness(void);
 f32 videoGetOverexposureScale(void);
+f32 videoGetVisualRestraint(void);
 
 f32 videoGetAverageFPS(void);
 
@@ -68,6 +69,7 @@ void videoSetDisplayFPS(const s32 displayfps);
 void videoSetMSAA(const s32 msaa);
 void videoSetGlareBrightness(f32 bright);
 void videoSetOverexposureScale(f32 scale);
+void videoSetVisualRestraint(f32 amount);
 
 s32 videoCreateFramebuffer(u32 w, u32 h, s32 upscale, s32 autoresize);
 void videoSetFramebuffer(s32 target);
