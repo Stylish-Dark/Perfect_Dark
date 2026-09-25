@@ -327,6 +327,8 @@ static inline uintptr_t minPtr3(uintptr_t a, uintptr_t b, uintptr_t c) {
 	return minPtr(minPtr(a, b), c);
 }
 
+static bool preprocessIsRestrainedCharacterFile(s32 fileNum);
+static bool preprocessIsDataDyneCharacterFile(s32 fileNum);
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr);
 
 static struct marker *findMarker(u32 src_offset)
@@ -639,10 +641,7 @@ static u32 convertContent(u8 *dst, u8 *src, u32 src_file_len)
 				// Restrict this to actual colour arrays (not vertex arrays) belonging
 				// to the same G5/Pelagic body files targeted by the texture pass.
 				const s32 fileNum = preprocessGetFileNum();
-				if (marker->type == CT_VTXCOL
-						&& (fileNum == FILE_CG5_GUARD
-							|| fileNum == FILE_CG5_SWAT_GUARD
-							|| fileNum == FILE_CPELAGIC_GUARD)) {
+				if (marker->type == CT_VTXCOL && preprocessIsRestrainedCharacterFile(fileNum)) {
 					struct marker *parent = findMarker(marker->parent_src_offset);
 
 					if (parent && parent->type == CT_RODATA_DL) {
@@ -1067,6 +1066,29 @@ static void preprocessTextureRGBA32Embedded(u32* dest, u32 size_bytes)
  * Do this while embedded body textures are still CPU-side so heads, weapons,
  * HUD elements and unrelated models are left alone.
  */
+static bool preprocessIsDataDyneCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_CDD_SECGUARD:
+	case FILE_CDD_LABTECH:
+	case FILE_CDD_GUARD:
+	case FILE_CDD_SHOCK:
+	case FILE_CDD_SHOCK_INF:
+	case FILE_CDDSNIPER:
+		return true;
+	}
+
+	return false;
+}
+
+static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
+{
+	return fileNum == FILE_CG5_GUARD
+		|| fileNum == FILE_CG5_SWAT_GUARD
+		|| fileNum == FILE_CPELAGIC_GUARD
+		|| preprocessIsDataDyneCharacterFile(fileNum);
+}
+
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
 {
 	s32 r = *rptr;
@@ -1118,6 +1140,19 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 			g = g * 90 / 100;
 			b = b * 86 / 100;
 		}
+	} else if (preprocessIsDataDyneCharacterFile(fileNum)) {
+		// dataDyne's purple remains part of the faction identity, but large bright
+		// violet areas read as graphic design rather than cloth/armour. Keep the
+		// hue family and pull only purple-dominant regions toward darker plum.
+		if (r > g + 10 && b > g + 14 && r > 55 && b > 55) {
+			luma = (54 * r + 183 * g + 19 * b) >> 8;
+			r = (3 * r + luma) / 4;
+			g = (2 * g + luma) / 3;
+			b = (3 * b + luma) / 4;
+			r = r * 90 / 100;
+			g = g * 90 / 100;
+			b = b * 92 / 100;
+		}
 	}
 
 	*rptr = (u8)r;
@@ -1127,7 +1162,7 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 
 static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxSize, u8 width, u8 height, s32 format)
 {
-	if (fileNum != FILE_CG5_GUARD && fileNum != FILE_CG5_SWAT_GUARD && fileNum != FILE_CPELAGIC_GUARD) {
+	if (!preprocessIsRestrainedCharacterFile(fileNum)) {
 		return false;
 	}
 
