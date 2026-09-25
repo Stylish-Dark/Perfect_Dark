@@ -4,6 +4,7 @@
 
 #include "types.h"
 #include "gbi.h"
+#include "files.h"
 #include "game/texdecompress.h"
 
 #include "preprocess/common.h"
@@ -1030,12 +1031,140 @@ static void preprocessTextureRGBA32Embedded(u32* dest, u32 size_bytes)
 	}
 }
 
+/**
+ * The restraint shader gives the whole game a gentler baseline, but the most
+ * conspicuously "videogame coloured" uniforms need material-specific treatment.
+ *
+ * Do this while embedded body textures are still CPU-side so heads, weapons,
+ * HUD elements and unrelated models are left alone.
+ */
+static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
+{
+	s32 r = *rptr;
+	s32 g = *gptr;
+	s32 b = *bptr;
+	s32 max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+	s32 min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+	s32 chroma = max - min;
+	s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
+
+	// First remove some of the flat, poster-like chroma without flattening value.
+	if (chroma > 24) {
+		s32 blend = 22 + (chroma - 24) / 3;
+		if (blend > 72) {
+			blend = 72;
+		}
+
+		r = (r * (256 - blend) + luma * blend) >> 8;
+		g = (g * (256 - blend) + luma * blend) >> 8;
+		b = (b * (256 - blend) + luma * blend) >> 8;
+	}
+
+	if (fileNum == FILE_CG5_GUARD || fileNum == FILE_CG5_SWAT_GUARD) {
+		// G5's cyan armour reads like an enemy colour code. Pull blue/cyan regions
+		// toward a darker steel/slate while retaining the original hue family.
+		if (b > r + 20 && g > r + 8) {
+			luma = (54 * r + 183 * g + 19 * b) >> 8;
+			r = (3 * r + luma) / 4;
+			g = (3 * g + luma) / 4;
+			b = (3 * b + luma) / 4;
+			r = r * 84 / 100;
+			g = g * 84 / 100;
+			b = b * 84 / 100;
+		}
+	} else if (fileNum == FILE_CPELAGIC_GUARD) {
+		// Pelagic/Deep Sea's clean bright red is the main "Mario with an Uzi"
+		// offender. Darken red fabric toward worn maritime red/burgundy.
+		if (r > g + 28 && r > b + 28) {
+			r = r * 82 / 100;
+			g = (g * 94 + r * 6) / 100;
+			b = (b * 92 + r * 8) / 100;
+		}
+
+		// Stark shirt white becomes a slightly warm, used off-white.
+		max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+		min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+		if (min > 185 && max - min < 40) {
+			r = r * 92 / 100;
+			g = g * 90 / 100;
+			b = b * 86 / 100;
+		}
+	}
+
+	*rptr = (u8)r;
+	*gptr = (u8)g;
+	*bptr = (u8)b;
+}
+
+static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxSize, u8 width, u8 height, s32 format)
+{
+	if (fileNum != FILE_CG5_GUARD && fileNum != FILE_CG5_SWAT_GUARD && fileNum != FILE_CPELAGIC_GUARD) {
+		return false;
+	}
+
+	if (format == TEXFORMAT_RGBA16) {
+		const u32 stride = ((width + 3) & ~3) * 2;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return false;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 2;
+				u16 rgba = (pixel[0] << 8) | pixel[1];
+				u8 r = ((rgba >> 11) & 0x1f) * 255 / 31;
+				u8 g = ((rgba >> 6) & 0x1f) * 255 / 31;
+				u8 b = ((rgba >> 1) & 0x1f) * 255 / 31;
+				const u16 a = rgba & 1;
+
+				preprocessRestrainedCharacterPixel(fileNum, &r, &g, &b);
+
+				rgba = ((r * 31 / 255) << 11)
+					| ((g * 31 / 255) << 6)
+					| ((b * 31 / 255) << 1)
+					| a;
+				pixel[0] = rgba >> 8;
+				pixel[1] = rgba & 0xff;
+			}
+		}
+
+		return true;
+	}
+
+	if (format == TEXFORMAT_RGBA32) {
+		const u32 stride = ((width + 3) & ~3) * 4;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return false;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 4;
+				preprocessRestrainedCharacterPixel(fileNum, &pixel[0], &pixel[1], &pixel[2]);
+			}
+		}
+
+		return true;
+	}
+
+	// Paletted CI textures require palette-aware treatment; leave them untouched
+	// rather than risk corrupting indices. They can be added once runtime asset
+	// inspection confirms which target body textures actually use CI.
+	return false;
+}
+
 static void preprocessModelTextures(u8 *base, u8 *textures_end)
 {
 	struct modeldef* mdl = (struct modeldef*)base;
 	if (!mdl->texconfigs) return;
 
 	u32 ofs = 0x5000000;
+	const s32 fileNum = preprocessGetFileNum();
+	s32 restrainedTextures = 0;
 	struct textureconfig* texconfigs = PD_PTR_BASEOFS(mdl->texconfigs, base, ofs);
 	for (s16 i = 0; i < mdl->numtexconfigs; ++i) {
 		if ((texconfigs[i].texturenum & 0xf000000) == 0x5000000) {
@@ -1047,6 +1176,11 @@ static void preprocessModelTextures(u8 *base, u8 *textures_end)
 			const s32 format = texConfigToFormat(&texconfigs[i]);
 			texSwizzleInternal(texdata, texconfigs[i].width, texconfigs[i].height, format, maxSize);
 
+			if (preprocessRestrainedCharacterTexture(fileNum, texdata, maxSize,
+					texconfigs[i].width, texconfigs[i].height, format)) {
+				restrainedTextures++;
+			}
+
 			if (format == TEXFORMAT_RGBA32) {
 				// for some reason, RGBA32 embedded textures don't need to be byte-swapped,
 				// so we byte-swap them here, which will be undone when the renderer imports it
@@ -1054,6 +1188,11 @@ static void preprocessModelTextures(u8 *base, u8 *textures_end)
 				preprocessTextureRGBA32Embedded((u32*)texdata, size_bytes);
 			}
 		}
+	}
+
+	if (restrainedTextures > 0) {
+		sysLogPrintf(LOG_NOTE, "visual restraint: model file 0x%x adjusted %d embedded direct-colour texture(s)",
+			fileNum, restrainedTextures);
 	}
 }
 

@@ -26,13 +26,21 @@ For each final fragment it:
 
 The fork defaults to 0.6. Setting **Extended Video Options -> Visual Restraint** to 0 restores the original colour response.
 
+## Targeted character pass
+
+The first model-specific treatment now runs during PC model preprocessing for the exact body assets used by the problem cases:
+
+- **G5 guard / G5 SWAT** — high-cyan direct-colour texels are pulled toward darker steel/slate blue while retaining the original hue family.
+- **Pelagic guard** — used in both Pelagic II and Deep Sea; bright red direct-colour texels are pushed toward worn maritime red/burgundy and near-white cloth becomes a warmer off-white.
+- Heads and unrelated models are not touched because the treatment is keyed to the body model file number.
+- RGBA16 and RGBA32 embedded textures are handled now. Paletted CI textures are deliberately left alone until their palettes can be identified safely rather than blindly modifying colour indices.
+
 ## Targeted asset pass: next
 
-The global pass is a baseline, not the final treatment. The next work should identify and selectively revise the worst offenders while preserving their identity:
+The global pass remains a baseline rather than the final treatment. Next priorities are:
 
-- **G5 guards** — cyan/sky-blue armour -> slate/steel blue, darker value structure, less uniform colour.
-- **Pelagic II / Deep Sea guards** — bright red + stark white -> faded maritime red/burgundy + dirty off-white, stronger fabric/shadow variation.
-- **dataDyne interiors and uniforms** — keep violet branding but pull large flat purples toward charcoal/plum; preserve small illuminated accents.
+- inspect target body models at runtime to determine whether any remaining visible uniform regions use CI palettes;
+- **dataDyne interiors and uniforms** — keep violet branding but pull large flat purples toward charcoal/plum; preserve small illuminated accents;
 - **environmental materials** — identify large flat-colour surfaces that would benefit from dirt, wear, mottling or restrained hue variation.
 
 The goal is not to make Perfect Dark grey or to imitate GoldenEye asset-for-asset. The goal is to make Perfect Dark's world look less visibly colour-designed and more materially plausible.

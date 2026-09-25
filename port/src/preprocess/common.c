@@ -2,6 +2,17 @@
 
 static struct ptrmarker ptrMarkers[MAX_PTR_MARKERS];
 static int numPtrMarkers;
+static s32 preprocessFileNum = -1;
+
+void preprocessSetFileNum(s32 fileNum)
+{
+	preprocessFileNum = fileNum;
+}
+
+s32 preprocessGetFileNum(void)
+{
+	return preprocessFileNum;
+}
 
 void ptrAdd(u32 ptr_src, uintptr_t ptr_host)
 {
