@@ -3,6 +3,7 @@
 static struct ptrmarker ptrMarkers[MAX_PTR_MARKERS];
 static int numPtrMarkers;
 static s32 preprocessFileNum = -1;
+static s32 preprocessBgStage = -1;
 
 void preprocessSetFileNum(s32 fileNum)
 {
@@ -12,6 +13,16 @@ void preprocessSetFileNum(s32 fileNum)
 s32 preprocessGetFileNum(void)
 {
 	return preprocessFileNum;
+}
+
+void preprocessSetBgStage(s32 stageNum)
+{
+	preprocessBgStage = stageNum;
+}
+
+s32 preprocessGetBgStage(void)
+{
+	return preprocessBgStage;
 }
 
 void ptrAdd(u32 ptr_src, uintptr_t ptr_host)
