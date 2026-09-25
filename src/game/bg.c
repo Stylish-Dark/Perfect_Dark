@@ -1461,6 +1461,10 @@ void bgVerifyLightSums(char *file, s32 line)
  */
 void bgReset(s32 stagenum)
 {
+#ifndef PLATFORM_N64
+	preprocessSetBgStage(stagenum);
+#endif
+
 	u8 *header;
 	u8 headerbuffer[0x50];
 	u32 numtextures;
