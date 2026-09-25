@@ -98,6 +98,7 @@
 #include "types.h"
 #ifndef PLATFORM_N64
 #include "video.h"
+#include "preprocess.h"
 #endif
 
 struct sndstate *g_MiscSfxAudioHandles[3];
@@ -238,6 +239,12 @@ void lvUpdateMiscSfx(void)
 
 void lvReset(s32 stagenum)
 {
+#ifndef PLATFORM_N64
+	// Set this even for title/credits/menu stages, which skip bgReset().
+	preprocessSetBgStage(stagenum);
+	preprocessSetEnvironmentTextureLoad(false);
+#endif
+
 	lvFadeReset();
 
 	var80084014 = false;
