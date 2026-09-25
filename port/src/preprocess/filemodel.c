@@ -4,8 +4,11 @@
 
 #include "types.h"
 #include "gbi.h"
+#include "files.h"
 #include "game/texdecompress.h"
 
+#include "romdata.h"
+#include "visualrestraint.h"
 #include "preprocess/common.h"
 #include "preprocess/gbi.h"
 
@@ -326,6 +329,10 @@ static inline uintptr_t minPtr3(uintptr_t a, uintptr_t b, uintptr_t c) {
 	return minPtr(minPtr(a, b), c);
 }
 
+static bool preprocessIsRestrainedCharacterFile(s32 fileNum);
+static bool preprocessIsEnvironmentPropFile(s32 fileNum);
+static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr);
+
 static struct marker *findMarker(u32 src_offset)
 {
 	for (int i = 0; i < numContentMarkers; i++) {
@@ -631,6 +638,32 @@ static u32 convertContent(u8 *dst, u8 *src, u32 src_file_len)
 		case CT_VTXCOL4:
 			{
 				memcpy(dst_thing, src_thing, src_len);
+
+				// Character models frequently use vertex colour as a material tint.
+				// Restrict this to actual colour arrays (not vertex arrays) belonging
+				// to the same G5/Pelagic body files targeted by the texture pass.
+				const s32 fileNum = preprocessGetFileNum();
+				if (marker->type == CT_VTXCOL
+						&& (preprocessIsRestrainedCharacterFile(fileNum)
+							|| preprocessIsEnvironmentPropFile(fileNum))) {
+					struct marker *parent = findMarker(marker->parent_src_offset);
+
+					if (parent && parent->type == CT_RODATA_DL) {
+						struct n64_rodata_dl *src_dl = (struct n64_rodata_dl *)&src[parent->src_offset];
+						const u32 colourOffset = PD_BE32(src_dl->ptr_colours) & 0x00ffffff;
+						const u32 numColours = PD_BE16(src_dl->numcolours);
+
+						if (colourOffset == marker->src_offset && numColours * sizeof(Col) <= src_len) {
+							Col *colours = (Col *)dst_thing;
+
+							for (u32 i = 0; i < numColours; i++) {
+								preprocessRestrainedCharacterPixel(fileNum,
+									&colours[i].r, &colours[i].g, &colours[i].b);
+							}
+						}
+					}
+				}
+
 				dstpos += src_len;
 				break;
 			}
@@ -1030,12 +1063,371 @@ static void preprocessTextureRGBA32Embedded(u32* dest, u32 size_bytes)
 	}
 }
 
+/**
+ * The restraint shader gives the whole game a gentler baseline, but the most
+ * conspicuously "videogame coloured" uniforms need material-specific treatment.
+ *
+ * Do this while embedded body textures are still CPU-side so heads, weapons,
+ * HUD elements and unrelated models are left alone.
+ */
+static bool preprocessIsEnvironmentPropFile(s32 fileNum)
+{
+	static s32 cachedFileNum = -2;
+	static bool cachedResult = false;
+
+	if (fileNum == cachedFileNum) {
+		return cachedResult;
+	}
+
+	cachedFileNum = fileNum;
+	cachedResult = false;
+
+	const char *name = romdataFileGetName(fileNum);
+
+	if (!name || name[0] != 'P') {
+		return false;
+	}
+
+	// Physical fixtures only. Do not sweep weapons, pickups or arbitrary props.
+	// Alien fixtures are intentionally allowed to violate the human material grammar.
+	if (!strncmp(name, "Psk", 3) || !strncmp(name, "Pcetan", 6) || !strncmp(name, "Pborg", 5)) {
+		return false;
+	}
+
+	static const char *tokens[] = {
+		"door", "lift", "crate", "table", "chair", "desk", "cabinet",
+		"locker", "gate", "barrier", "mainframe", "pillar", "wall",
+		"panel", "console", "shutter", "airlock", "window", "trolley",
+		"wastebin", "fan", "sofa", "grate", "fence", "barrel", "bed",
+		"bridge", "generator", "lab_container", "enginepart",
+		"board", "divide", "windmill", "banner", "dumpster", "blastshield",
+		"microscope", "autosurgeon", "interceptor", "a51dish", "chamber",
+		"isotopeexperiment", "rubble", "hatch", "toilet", "prescapsule",
+		"modembox", "cable_car", "airforce1", "limo",
+		"hovcab", "hovcar", "hovcop", "hovercopter", "hovmoto", "hovtruck",
+		"hovbike", "policecar", "taxicab", "baggagecarrier", "submarine",
+		"a51_turret", "a51_roofgun", "ci_roofgun"
+	};
+
+	for (s32 i = 0; i < ARRAYCOUNT(tokens); i++) {
+		if (strstr(name, tokens[i])) {
+			cachedResult = true;
+			break;
+		}
+	}
+
+	return cachedResult;
+}
+
+
+static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
+{
+	return visualRestraintIsCharacterFile(fileNum);
+}
+
+static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
+{
+	if (preprocessIsEnvironmentPropFile(fileNum)) {
+		const enum visualrestraintstageprofile profile =
+			visualRestraintGetStageProfile(preprocessGetBgStage());
+		visualRestraintApplyEnvironmentPixel(profile, rptr, gptr, bptr);
+		return;
+	}
+
+	visualRestraintApplyCharacterPixel(fileNum, rptr, gptr, bptr);
+}
+
+static void preprocessApplyDirectTextureMicrocontrast(s32 fileNum, u8 *data, u32 maxSize,
+		u8 width, u8 height, s32 format)
+{
+	const s32 maxDelta = preprocessIsEnvironmentPropFile(fileNum) ? 5
+		: (visualRestraintIsCharacterFile(fileNum) ? 4 : 0);
+
+	if (!maxDelta) {
+		return;
+	}
+
+	u64 lumaTotal = 0;
+	u32 opaqueCount = 0;
+
+	if (format == TEXFORMAT_RGBA16) {
+		const u32 stride = ((width + 3) & ~3) * 2;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 2;
+				const u16 rgba = (pixel[0] << 8) | pixel[1];
+
+				if (!(rgba & 1)) {
+					continue;
+				}
+
+				const s32 r = ((rgba >> 11) & 0x1f) * 255 / 31;
+				const s32 g = ((rgba >> 6) & 0x1f) * 255 / 31;
+				const s32 b = ((rgba >> 1) & 0x1f) * 255 / 31;
+				const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				lumaTotal += luma;
+				opaqueCount++;
+			}
+		}
+
+		if (!opaqueCount) {
+			return;
+		}
+
+		const s32 averageLuma = (s32)(lumaTotal / opaqueCount);
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 2;
+				u16 rgba = (pixel[0] << 8) | pixel[1];
+
+				if (!(rgba & 1)) {
+					continue;
+				}
+
+				s32 r = ((rgba >> 11) & 0x1f) * 255 / 31;
+				s32 g = ((rgba >> 6) & 0x1f) * 255 / 31;
+				s32 b = ((rgba >> 1) & 0x1f) * 255 / 31;
+				const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				s32 delta = (luma - averageLuma) / 18;
+
+				if (delta < -maxDelta) {
+					delta = -maxDelta;
+				} else if (delta > maxDelta) {
+					delta = maxDelta;
+				}
+
+				r += delta;
+				g += delta;
+				b += delta;
+
+				r = r < 0 ? 0 : (r > 255 ? 255 : r);
+				g = g < 0 ? 0 : (g > 255 ? 255 : g);
+				b = b < 0 ? 0 : (b > 255 ? 255 : b);
+
+				rgba = ((r * 31 / 255) << 11)
+					| ((g * 31 / 255) << 6)
+					| ((b * 31 / 255) << 1)
+					| 1;
+				pixel[0] = rgba >> 8;
+				pixel[1] = rgba & 0xff;
+			}
+		}
+
+		return;
+	}
+
+	if (format == TEXFORMAT_RGBA32) {
+		const u32 stride = ((width + 3) & ~3) * 4;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 4;
+
+				if (!pixel[3]) {
+					continue;
+				}
+
+				const s32 luma = (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				lumaTotal += luma;
+				opaqueCount++;
+			}
+		}
+
+		if (!opaqueCount) {
+			return;
+		}
+
+		const s32 averageLuma = (s32)(lumaTotal / opaqueCount);
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 4;
+
+				if (!pixel[3]) {
+					continue;
+				}
+
+				const s32 luma = (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				s32 delta = (luma - averageLuma) / 18;
+
+				if (delta < -maxDelta) {
+					delta = -maxDelta;
+				} else if (delta > maxDelta) {
+					delta = maxDelta;
+				}
+
+				for (s32 channel = 0; channel < 3; channel++) {
+					s32 value = pixel[channel] + delta;
+					pixel[channel] = (u8)(value < 0 ? 0 : (value > 255 ? 255 : value));
+				}
+			}
+		}
+	}
+}
+
+static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxSize, u8 width, u8 height, s32 format)
+{
+	if (!preprocessIsRestrainedCharacterFile(fileNum)
+			&& !preprocessIsEnvironmentPropFile(fileNum)) {
+		return false;
+	}
+
+	if (format == TEXFORMAT_RGBA16) {
+		const u32 stride = ((width + 3) & ~3) * 2;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return false;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 2;
+				u16 rgba = (pixel[0] << 8) | pixel[1];
+				u8 r = ((rgba >> 11) & 0x1f) * 255 / 31;
+				u8 g = ((rgba >> 6) & 0x1f) * 255 / 31;
+				u8 b = ((rgba >> 1) & 0x1f) * 255 / 31;
+				const u16 a = rgba & 1;
+
+				preprocessRestrainedCharacterPixel(fileNum, &r, &g, &b);
+
+				rgba = ((r * 31 / 255) << 11)
+					| ((g * 31 / 255) << 6)
+					| ((b * 31 / 255) << 1)
+					| a;
+				pixel[0] = rgba >> 8;
+				pixel[1] = rgba & 0xff;
+			}
+		}
+
+		preprocessApplyDirectTextureMicrocontrast(fileNum, data, maxSize, width, height, format);
+		return true;
+	}
+
+	if (format == TEXFORMAT_RGBA32) {
+		const u32 stride = ((width + 3) & ~3) * 4;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return false;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 4;
+				preprocessRestrainedCharacterPixel(fileNum, &pixel[0], &pixel[1], &pixel[2]);
+			}
+		}
+
+		preprocessApplyDirectTextureMicrocontrast(fileNum, data, maxSize, width, height, format);
+		return true;
+	}
+
+	// CI textures are treated after palette lookup by the PC renderer. Their
+	// source indices remain untouched.
+	return false;
+}
+
+
+static u32 preprocessEmbeddedCiTextureSize(u8 width, u8 height, s32 format)
+{
+	if (format == TEXFORMAT_RGBA16_CI8) {
+		return ((width + 7) & 0xff8) * height;
+	}
+
+	if (format == TEXFORMAT_RGBA16_CI4) {
+		return (((width + 15) & 0xff0) >> 1) * height;
+	}
+
+	return 0;
+}
+
+static void preprocessRegisterCiTextures(u8 *base)
+{
+	const s32 fileNum = preprocessGetFileNum();
+	struct modeldef *mdl = (struct modeldef *)base;
+
+	if (!mdl->texconfigs) {
+		return;
+	}
+
+	const enum visualrestraintstageprofile profile = preprocessIsEnvironmentPropFile(fileNum)
+		? visualRestraintGetStageProfile(preprocessGetBgStage())
+		: VISUAL_RESTRAINT_STAGE_NONE;
+	const s32 targeted = visualRestraintIsCharacterFile(fileNum)
+		|| profile != VISUAL_RESTRAINT_STAGE_NONE;
+	s32 registered = 0;
+
+	const u32 ofs = 0x5000000;
+	struct textureconfig *texconfigs = PD_PTR_BASEOFS(mdl->texconfigs, base, ofs);
+
+	for (s16 i = 0; i < mdl->numtexconfigs; i++) {
+		if ((texconfigs[i].texturenum & 0xf000000) != 0x5000000) {
+			continue;
+		}
+
+		const s32 format = texConfigToFormat(&texconfigs[i]);
+		const u32 size = preprocessEmbeddedCiTextureSize(
+			texconfigs[i].width, texconfigs[i].height, format);
+
+		if (!size) {
+			continue;
+		}
+
+		u8 *texdata = PD_PTR_BASEOFS(texconfigs[i].textureptr, base, ofs);
+		visualRestraintRegisterTextureContext(texdata, size, fileNum, profile);
+
+		if (targeted) {
+			registered++;
+		}
+	}
+
+	if (registered > 0) {
+		sysLogPrintf(LOG_NOTE, "visual restraint: model file 0x%x registered %d CI texture(s), profile %d",
+			fileNum, registered, profile);
+	}
+}
+
 static void preprocessModelTextures(u8 *base, u8 *textures_end)
 {
 	struct modeldef* mdl = (struct modeldef*)base;
 	if (!mdl->texconfigs) return;
 
 	u32 ofs = 0x5000000;
+	const s32 fileNum = preprocessGetFileNum();
+	s32 restrainedTextures = 0;
 	struct textureconfig* texconfigs = PD_PTR_BASEOFS(mdl->texconfigs, base, ofs);
 	for (s16 i = 0; i < mdl->numtexconfigs; ++i) {
 		if ((texconfigs[i].texturenum & 0xf000000) == 0x5000000) {
@@ -1047,6 +1439,11 @@ static void preprocessModelTextures(u8 *base, u8 *textures_end)
 			const s32 format = texConfigToFormat(&texconfigs[i]);
 			texSwizzleInternal(texdata, texconfigs[i].width, texconfigs[i].height, format, maxSize);
 
+			if (preprocessRestrainedCharacterTexture(fileNum, texdata, maxSize,
+					texconfigs[i].width, texconfigs[i].height, format)) {
+				restrainedTextures++;
+			}
+
 			if (format == TEXFORMAT_RGBA32) {
 				// for some reason, RGBA32 embedded textures don't need to be byte-swapped,
 				// so we byte-swap them here, which will be undone when the renderer imports it
@@ -1054,6 +1451,11 @@ static void preprocessModelTextures(u8 *base, u8 *textures_end)
 				preprocessTextureRGBA32Embedded((u32*)texdata, size_bytes);
 			}
 		}
+	}
+
+	if (restrainedTextures > 0) {
+		sysLogPrintf(LOG_NOTE, "visual restraint: model file 0x%x adjusted %d embedded direct-colour texture(s)",
+			fileNum, restrainedTextures);
 	}
 }
 
@@ -1085,6 +1487,7 @@ u8 *preprocessModelFile(u8 *data, u32 size, u32 *outSize)
 	}
 	
 	memcpy(data, dst, newSize);
+	preprocessRegisterCiTextures(data);
 	sysMemFree(dst);
 
 	*outSize = newSize;

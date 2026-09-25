@@ -518,6 +518,8 @@ void romdataFilePreprocess(s32 fileNum, s32 loadType, u8 *data, u32 size, u32 *o
 
 	if (data && size /* && !fileSlots[fileNum].preprocessed*/) {
 		if (loadType && loadType < (u32)ARRAYCOUNT(filePreprocFuncs) && filePreprocFuncs[loadType]) {
+			preprocessSetFileNum(fileNum);
+
 			// apply patches
 			for (u32 i = 0; i < fileSlots[fileNum].numpatches; ++i) {
 				const struct romfilepatch *p = &fileSlots[fileNum].patches[i];
@@ -528,6 +530,7 @@ void romdataFilePreprocess(s32 fileNum, s32 loadType, u8 *data, u32 size, u32 *o
 			}
 			// then preprocess
 			filePreprocFuncs[loadType](data, size, outSize);
+			preprocessSetFileNum(-1);
 			// fileSlots[fileNum].preprocessed = 1;
 		}
 	}

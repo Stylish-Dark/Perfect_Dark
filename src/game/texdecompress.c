@@ -13,6 +13,8 @@
 #ifndef PLATFORM_N64
 #include "mod.h"
 #include "platform.h"
+#include "preprocess.h"
+#include "visualrestraint.h"
 #endif
 
 struct texture *g_Textures;
@@ -2377,6 +2379,39 @@ void texLoad(texnum_t *updateword, struct texpool *pool, bool unusedarg)
 				texGetPoolFreeBytes(pool);
 			}
 		}
+
+#ifndef PLATFORM_N64
+		if (preprocessGetEnvironmentTextureLoad()) {
+			const enum visualrestraintstageprofile profile =
+				visualRestraintGetStageProfile(preprocessGetBgStage());
+			u32 texturebytes = 0;
+			s32 supported = false;
+
+			if (tex->gbiformat == G_IM_FMT_RGBA
+					&& tex->lutmodeindex == (G_TT_NONE >> G_MDSFT_TEXTLUT)) {
+				if (tex->depth == G_IM_SIZ_16b) {
+					texturebytes = ((tex->width + 3) & ~3) * tex->height * 2;
+					supported = true;
+				} else if (tex->depth == G_IM_SIZ_32b) {
+					texturebytes = ((tex->width + 3) & ~3) * tex->height * 4;
+					supported = true;
+				}
+			} else if (tex->gbiformat == G_IM_FMT_CI
+					&& tex->lutmodeindex == (G_TT_RGBA16 >> G_MDSFT_TEXTLUT)) {
+				if (tex->depth == G_IM_SIZ_4b) {
+					texturebytes = (((tex->width + 15) & ~15) >> 1) * tex->height;
+					supported = true;
+				} else if (tex->depth == G_IM_SIZ_8b) {
+					texturebytes = ((tex->width + 7) & ~7) * tex->height;
+					supported = true;
+				}
+			}
+
+			if (supported && texturebytes > 0 && profile != VISUAL_RESTRAINT_STAGE_NONE) {
+				visualRestraintRegisterTextureContext(tex->data, texturebytes, -1, profile);
+			}
+		}
+#endif
 
 		*updateword = osVirtualToPhysical(tex->data);
 	}

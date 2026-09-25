@@ -52,8 +52,12 @@ static displaymode *vidModes = &vidModeDefault;
 
 static f32 vidGlareBrightness = 1.f;
 static f32 vidOverexposureScale = 1.f;
+// Targeted world/material passes now do the heavy lifting. Keep the global
+// shader subtle so UI, weapons and alien technology retain more of PD's identity.
+static f32 vidVisualRestraint = 0.35f;
 
-static s32 texFilter = FILTER_LINEAR;
+// Three-point filtering retains N64 texture structure with less bilinear smearing.
+static s32 texFilter = FILTER_THREE_POINT;
 static s32 texFilter2D = true;
 static s32 texDetail = false;
 static s32 texMipmapFilter = MIPMAP_LINEAR;
@@ -106,6 +110,7 @@ s32 videoInit(void)
 
 	gfx_set_texture_filter((enum FilteringMode)texFilter);
 	gfx_set_mipmap_filter((enum MipmapFilteringMode)texMipmapFilter);
+	gfx_set_visual_restraint(vidVisualRestraint);
 	videoSetAnisotropicFilter(texAnisotropicFilter);
 	optionsMenuInit();
 
@@ -396,6 +401,11 @@ f32 videoGetOverexposureScale(void)
 	return vidOverexposureScale;
 }
 
+f32 videoGetVisualRestraint(void)
+{
+	return vidVisualRestraint;
+}
+
 void videoSetWindowOffset(s32 x, s32 y)
 {
 	gfx_current_game_window_viewport.x = x;
@@ -483,6 +493,14 @@ void videoSetGlareBrightness(f32 bright)
 void videoSetOverexposureScale(f32 scale)
 {
 	vidOverexposureScale = (scale < 0.f ? 0.f : (scale > 1.f ? 1.f : scale));
+}
+
+void videoSetVisualRestraint(f32 amount)
+{
+	amount = (amount < 0.f ? 0.f : (amount > 1.f ? 1.f : amount));
+	if (vidVisualRestraint == amount) return;
+	vidVisualRestraint = amount;
+	gfx_set_visual_restraint(vidVisualRestraint);
 }
 
 s32 videoCreateFramebuffer(u32 w, u32 h, s32 upscale, s32 autoresize)
@@ -585,4 +603,5 @@ PD_CONSTRUCTOR static void videoConfigInit(void)
 	configRegisterInt("Video.AnisotropicFilter", &texAnisotropicFilter, 0, 16);
 	configRegisterFloat("Video.GlareBrightness", &vidGlareBrightness, 0.f, 1.f);
 	configRegisterFloat("Video.OverexposureScale", &vidOverexposureScale, 0.f, 1.f);
+	configRegisterFloat("Video.VisualRestraint", &vidVisualRestraint, 0.f, 1.f);
 }

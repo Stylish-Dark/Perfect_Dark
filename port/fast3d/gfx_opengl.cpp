@@ -33,6 +33,7 @@ struct ShaderProgram {
     GLint frame_count_location;
     GLint noise_scale_location;
     GLint three_point_filter_locations[2];
+    GLint visual_restraint_location;
 };
 
 struct Framebuffer {
@@ -45,6 +46,7 @@ struct Framebuffer {
 };
 
 static std::map<pair<uint64_t, uint32_t>, struct ShaderProgram> shader_program_pool;
+static struct ShaderProgram* current_shader_program = nullptr;
 static GLuint opengl_vbo;
 static GLuint opengl_vao;
 static bool current_depth_mask;
@@ -57,6 +59,7 @@ static float current_noise_scale;
 static int current_anisotropy_level;
 static FilteringMode current_filter_mode = FILTER_LINEAR;
 static MipmapFilteringMode current_mipmap_filter_mode = MIPMAP_LINEAR;
+static float current_visual_restraint = 0.0f;
 static bool current_textures_linear_filter[2] = {false, false};
 
 static int gl_glsl_version = 130;
@@ -100,6 +103,9 @@ static void gfx_opengl_set_uniforms(struct ShaderProgram* prg) {
     if (prg->noise_scale_location >= 0) {
         glUniform1f(prg->noise_scale_location, current_noise_scale);
     }
+    if (prg->visual_restraint_location >= 0) {
+        glUniform1f(prg->visual_restraint_location, current_visual_restraint);
+    }
     if (prg->three_point_filter_locations[0] >= 0) {
         glUniform1i(prg->three_point_filter_locations[0], current_textures_linear_filter[0]);
     }
@@ -121,6 +127,7 @@ static void gfx_opengl_unload_shader(struct ShaderProgram* old_prg) {
 static void gfx_opengl_load_shader(struct ShaderProgram* new_prg) {
     // if (!new_prg) return;
     glUseProgram(new_prg->opengl_program_id);
+    current_shader_program = new_prg;
     gfx_opengl_vertex_array_set_attribs(new_prg);
     gfx_opengl_set_uniforms(new_prg);
 }
@@ -240,7 +247,7 @@ static struct ShaderProgram* gfx_opengl_create_and_load_new_shader(uint64_t shad
     gfx_cc_get_features(shader_id0, shader_id1, &cc_features);
 
     char vs_buf[2048];
-    char fs_buf[8192];
+    char fs_buf[12288];
     size_t vs_len = 0;
     size_t fs_len = 0;
     size_t num_floats = 4;
@@ -382,10 +389,28 @@ static struct ShaderProgram* gfx_opengl_create_and_load_new_shader(uint64_t shad
 
     append_line(fs_buf, &fs_len, "uniform int frame_count;");
     append_line(fs_buf, &fs_len, "uniform float noise_scale;");
+    append_line(fs_buf, &fs_len, "uniform float visual_restraint;");
 
     append_line(fs_buf, &fs_len, "float random(in vec3 value) {");
     append_line(fs_buf, &fs_len, "    float random = dot(sin(value), vec3(12.9898, 78.233, 37.719));");
     append_line(fs_buf, &fs_len, "    return fract(sin(random) * 143758.5453);");
+    append_line(fs_buf, &fs_len, "}");
+
+    // Selectively compress strong chroma while preserving luminance. This targets the
+    // conspicuously saturated parts of PD's palette without flattening already-muted materials.
+    append_line(fs_buf, &fs_len, "vec3 applyVisualRestraint(in vec3 color) {");
+    append_line(fs_buf, &fs_len, "    float luma = dot(color, vec3(0.2126, 0.7152, 0.0722));");
+    append_line(fs_buf, &fs_len, "    vec3 chroma = color - vec3(luma);");
+    append_line(fs_buf, &fs_len, "    float chroma_strength = max(max(abs(chroma.r), abs(chroma.g)), abs(chroma.b));");
+    append_line(fs_buf, &fs_len, "    float high_chroma = smoothstep(0.08, 0.35, chroma_strength);");
+    append_line(fs_buf, &fs_len, "    float peak = max(max(color.r, color.g), color.b);");
+    append_line(fs_buf, &fs_len, "    float emissive_preserve = smoothstep(0.78, 0.98, peak);");
+    append_line(fs_buf, &fs_len, "    high_chroma *= 1.0 - emissive_preserve;");
+    append_line(fs_buf, &fs_len, "    float chroma_scale = 1.0 - visual_restraint * high_chroma * 0.55;");
+    append_line(fs_buf, &fs_len, "    vec3 restrained = vec3(luma) + chroma * chroma_scale;");
+    append_line(fs_buf, &fs_len, "    float contrast = 1.0 + visual_restraint * 0.08;");
+    append_line(fs_buf, &fs_len, "    restrained = (restrained - vec3(0.5)) * contrast + vec3(0.5);");
+    append_line(fs_buf, &fs_len, "    return clamp(restrained, 0.0, 1.0);");
     append_line(fs_buf, &fs_len, "}");
 
     if (current_filter_mode == FILTER_THREE_POINT) {
@@ -509,6 +534,8 @@ static struct ShaderProgram* gfx_opengl_create_and_load_new_shader(uint64_t shad
             append_line(fs_buf, &fs_len, "    texel = mix(texel, vFog.rgb, vFog.a);");
         }
     }
+
+    append_line(fs_buf, &fs_len, "    texel.rgb = applyVisualRestraint(texel.rgb);");
 
     if (cc_features.opt_texture_edge && cc_features.opt_alpha) {
         append_line(fs_buf, &fs_len, "    if (texel.a > 0.19) texel.a = 1.0; else discard;");
@@ -650,6 +677,7 @@ static struct ShaderProgram* gfx_opengl_create_and_load_new_shader(uint64_t shad
 
     prg->frame_count_location = glGetUniformLocation(shader_program, "frame_count");
     prg->noise_scale_location = glGetUniformLocation(shader_program, "noise_scale");
+    prg->visual_restraint_location = glGetUniformLocation(shader_program, "visual_restraint");
     prg->three_point_filter_locations[0] = glGetUniformLocation(shader_program, "three_point_filter0");
     prg->three_point_filter_locations[1] = glGetUniformLocation(shader_program, "three_point_filter1");
 
@@ -671,6 +699,7 @@ static void gfx_opengl_shader_get_info(struct ShaderProgram* prg, uint8_t* num_i
 
 static void gfx_opengl_clear_shaders(void) {
     glUseProgram(0);
+    current_shader_program = nullptr;
     for (auto& pair : shader_program_pool) {
         glDeleteProgram(pair.second.opengl_program_id);
     }
@@ -1279,6 +1308,14 @@ static void gfx_opengl_set_anisotropy_level(int level) {
 	current_anisotropy_level = level;
 }
 
+static void gfx_opengl_set_visual_restraint(float amount) {
+    current_visual_restraint = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+
+    if (current_shader_program && current_shader_program->visual_restraint_location >= 0) {
+        glUniform1f(current_shader_program->visual_restraint_location, current_visual_restraint);
+    }
+}
+
 struct GfxRenderingAPI gfx_opengl_api = {
     gfx_opengl_get_name,
     gfx_opengl_get_max_texture_size,
@@ -1317,5 +1354,6 @@ struct GfxRenderingAPI gfx_opengl_api = {
     gfx_opengl_get_texture_filter,
     gfx_opengl_set_mipmap_filter,
     gfx_opengl_set_anisotropy_level,
-    gfx_opengl_get_max_anisotropy_level
+    gfx_opengl_get_max_anisotropy_level,
+    gfx_opengl_set_visual_restraint
 };

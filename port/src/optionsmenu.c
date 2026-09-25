@@ -1036,6 +1036,20 @@ static MenuItemHandlerResult menuhandlerOverexposureScale(s32 operation, struct 
 	return 0;
 }
 
+static MenuItemHandlerResult menuhandlerVisualRestraint(s32 operation, struct menuitem *item, union handlerdata *data)
+{
+	switch (operation) {
+	case MENUOP_GETSLIDER:
+		data->slider.value = videoGetVisualRestraint() * 10.f + 0.5f;
+		break;
+	case MENUOP_SET:
+		videoSetVisualRestraint((f32)data->slider.value / 10.f);
+		break;
+	}
+
+	return 0;
+}
+
 struct menuitem g_ExtendedVideoMenuItems[] = {
 	{
 		MENUITEMTYPE_CHECKBOX,
@@ -1212,6 +1226,14 @@ struct menuitem g_ExtendedVideoMenuItems[] = {
 		(uintptr_t)"Overexposure Scale",
 		10,
 		menuhandlerOverexposureScale,
+	},
+	{
+		MENUITEMTYPE_SLIDER,
+		0,
+		MENUITEMFLAG_LITERAL_TEXT | MENUITEMFLAG_SLIDER_WIDE,
+		(uintptr_t)"Visual Restraint",
+		10,
+		menuhandlerVisualRestraint,
 	},
 	{
 		MENUITEMTYPE_SEPARATOR,

@@ -25,6 +25,10 @@
 
 #include "platform.h"
 
+extern "C" {
+#include "visualrestraint.h"
+}
+
 #include "gfx_pc.h"
 #include "gfx_cc.h"
 #include "gfx_window_manager_api.h"
@@ -567,7 +571,7 @@ void gfx_texture_cache_delete(const uint8_t* orig_addr) {
     }
 
     while (gfx_texture_cache.map.bucket_count() > 0) {
-        TextureCacheKey key = { orig_addr, { 0 }, 0, 0 }; // bucket index only depends on the address
+        TextureCacheKey key = { orig_addr, { 0 }, 0, 0, 0, -1 }; // bucket index only depends on the address
         size_t bucket = gfx_texture_cache.map.bucket(key);
         bool again = false;
         for (auto it = gfx_texture_cache.map.begin(bucket); it != gfx_texture_cache.map.end(bucket); ++it) {
@@ -631,6 +635,18 @@ static void import_texture_rgba16(int tile, const LoadedTexture& loaded_texture,
         dest[3] = a ? 255 : 0;
     }
 
+    const enum visualrestraintstageprofile restraint_profile =
+        visualRestraintFindEnvironmentTextureProfile(addr, loaded_texture.full_size_bytes);
+
+    if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+        for (uint32_t i = 0; i < size_bytes / 2; i++) {
+            uint8_t *rgba = tex_upload_buffer + i * 4;
+            visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
+        }
+
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes / 2, 5);
+    }
+
     const uint32_t width = rdp.texture_tile[tile].line_size_bytes / 2;
     const uint32_t height = size_bytes / rdp.texture_tile[tile].line_size_bytes;
 
@@ -651,6 +667,18 @@ static void import_texture_rgba32(int tile, const LoadedTexture& loaded_texture,
     const uint32_t *src = (const uint32_t *)addr;
     for (uint32_t i = 0; i < size_bytes; i += 4, ++dest, ++src) {
         *dest = PD_BE32(*src);
+    }
+
+    const enum visualrestraintstageprofile restraint_profile =
+        visualRestraintFindEnvironmentTextureProfile(addr, loaded_texture.full_size_bytes);
+
+    if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+        for (uint32_t i = 0; i < size_bytes / 4; i++) {
+            uint8_t *rgba = tex_upload_buffer + i * 4;
+            visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
+        }
+
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes / 4, 5);
     }
 
     const uint32_t width = rdp.texture_tile[tile].line_size_bytes / 2;
@@ -822,12 +850,31 @@ static void import_texture_ci4(int tile, const LoadedTexture& loaded_texture, bo
     const uint32_t line_size_bytes = loaded_texture.line_size_bytes;
     const uint32_t pal_idx = rdp.texture_tile[tile].palette; // 0-15
     const uint16_t* palette = (const uint16_t *)(rdp.palette + pal_idx * 16); // 16 pixel entries, 16 bits each
+    const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindCharacterCiTextureFile(addr, loaded_texture.full_size_bytes)
+        : -1;
+    const enum visualrestraintstageprofile restraint_profile = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindEnvironmentTextureProfile(addr, loaded_texture.full_size_bytes)
+        : VISUAL_RESTRAINT_STAGE_NONE;
     SUPPORT_CHECK(full_image_line_size_bytes == line_size_bytes);
 
     for (uint32_t i = 0; i < size_bytes * 2; i++) {
         const uint8_t byte = addr[i / 2];
         const uint8_t idx = (byte >> (4 - (i % 2) * 4)) & 0xf;
-        palette_to_rgba32(palette[idx], tex_upload_buffer +4 * i);
+        uint8_t *rgba = tex_upload_buffer + 4 * i;
+        palette_to_rgba32(palette[idx], rgba);
+
+        if (restraint_file >= 0) {
+            visualRestraintApplyCharacterPixel(restraint_file, &rgba[0], &rgba[1], &rgba[2]);
+        } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+            visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
+        }
+    }
+
+    if (restraint_file >= 0) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes * 2, 4);
+    } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes * 2, 5);
     }
 
     uint32_t result_line_size = rdp.texture_tile[tile].line_size_bytes;
@@ -849,11 +896,31 @@ static void import_texture_ci8(int tile, const LoadedTexture& loaded_texture, bo
         loaded_texture.full_image_line_size_bytes;
     const uint32_t line_size_bytes = loaded_texture.line_size_bytes;
 
+    const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindCharacterCiTextureFile(addr, loaded_texture.full_size_bytes)
+        : -1;
+    const enum visualrestraintstageprofile restraint_profile = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindEnvironmentTextureProfile(addr, loaded_texture.full_size_bytes)
+        : VISUAL_RESTRAINT_STAGE_NONE;
+
     for (uint32_t i = 0, j = 0; i < size_bytes; j += full_image_line_size_bytes - line_size_bytes) {
         for (uint32_t k = 0; k < line_size_bytes; i++, k++, j++) {
             const uint8_t idx = addr[j];
-            palette_to_rgba32(rdp.palette[idx], tex_upload_buffer + 4 * i);
+            uint8_t *rgba = tex_upload_buffer + 4 * i;
+            palette_to_rgba32(rdp.palette[idx], rgba);
+
+            if (restraint_file >= 0) {
+                visualRestraintApplyCharacterPixel(restraint_file, &rgba[0], &rgba[1], &rgba[2]);
+            } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+                visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
+            }
         }
+    }
+
+    if (restraint_file >= 0) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes, 4);
+    } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes, 5);
     }
 
     uint32_t result_line_size = rdp.texture_tile[tile].line_size_bytes;
@@ -893,11 +960,23 @@ static void import_texture(int i, int tile, bool importReplacement) {
     const uint8_t* orig_addr = loaded_texture.addr;
     SUPPORT_CHECK(orig_addr);
 
+    const s32 visual_restraint_file = fmt == G_IM_FMT_CI && rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindCharacterCiTextureFile(orig_addr, loaded_texture.full_size_bytes)
+        : -1;
+    const enum visualrestraintstageprofile visual_restraint_profile =
+        visualRestraintFindEnvironmentTextureProfile(orig_addr, loaded_texture.full_size_bytes);
+    const s32 visual_restraint_identity = visual_restraint_file >= 0
+        ? visual_restraint_file
+        : (visual_restraint_profile != VISUAL_RESTRAINT_STAGE_NONE
+            ? -1000 - (s32)visual_restraint_profile
+            : -1);
+
     TextureCacheKey key;
     if (fmt == G_IM_FMT_CI) {
-        key = { orig_addr, { rdp.palette_addrs[0], rdp.palette_addrs[1] }, fmt, siz, palette_index };
+        key = { orig_addr, { rdp.palette_addrs[0], rdp.palette_addrs[1] }, fmt, siz, palette_index,
+            visual_restraint_identity };
     } else {
-        key = { orig_addr, {}, fmt, siz, palette_index };
+        key = { orig_addr, {}, fmt, siz, palette_index, -1 };
     }
 
     if (gfx_texture_cache_lookup(i, key)) {
@@ -2739,6 +2818,10 @@ extern "C" void gfx_set_texture_filter(enum FilteringMode mode) {
 extern "C" void gfx_set_mipmap_filter(enum MipmapFilteringMode mode) {
     reset_texture_state();
     gfx_rapi->set_mipmap_filter(mode);
+}
+
+extern "C" void gfx_set_visual_restraint(float amount) {
+    gfx_rapi->set_visual_restraint(amount);
 }
 
 extern "C" int gfx_create_framebuffer(uint32_t width, uint32_t height, int upscale, int autoresize) {

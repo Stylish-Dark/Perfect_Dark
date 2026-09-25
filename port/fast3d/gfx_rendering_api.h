@@ -56,6 +56,7 @@ struct GfxRenderingAPI {
     void (*set_mipmap_filter)(enum MipmapFilteringMode mode);
 	void (*set_anisotropy_level)(int);
 	int (*get_max_anisotropy_level)(void);
+    void (*set_visual_restraint)(float amount);
 };
 
 #endif

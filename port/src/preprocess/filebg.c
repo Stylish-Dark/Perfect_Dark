@@ -8,6 +8,7 @@
 
 #include "preprocess/common.h"
 #include "preprocess/gbi.h"
+#include "visualrestraint.h"
 
 /**
  * 4 bytes decompressed size of primary data
@@ -104,6 +105,20 @@ struct vtx {
 	u16 s;
 	u16 t;
 };
+
+static void restrainRoomColours(Col *colours, u32 count)
+{
+	const enum visualrestraintstageprofile profile = visualRestraintGetStageProfile(preprocessGetBgStage());
+
+	if (profile == VISUAL_RESTRAINT_STAGE_NONE) {
+		return;
+	}
+
+	for (u32 i = 0; i < count; i++) {
+		visualRestraintApplyEnvironmentPixel(profile,
+			&colours[i].r, &colours[i].g, &colours[i].b);
+	}
+}
 
 static void convertPrimaryRooms(u8 *dst, u32 *dstpos, u8 *src, u32 *srcpos)
 {
@@ -364,6 +379,15 @@ static u32 convertRoomGfxData(u8 *dst, u8 *src, u32 infsize, u32 src_ofs)
 		size_t col_len = col_end - curpos_src;
 
 		memcpy(dst + curpos_dst, src + curpos_src, col_len);
+
+		if (visualRestraintGetStageProfile(preprocessGetBgStage()) != VISUAL_RESTRAINT_STAGE_NONE) {
+			const u32 availableColours = col_len / sizeof(Col);
+			const u32 colourCount = dst_header->numcolours < availableColours
+				? dst_header->numcolours
+				: availableColours;
+			restrainRoomColours((Col *)(dst + curpos_dst), colourCount);
+		}
+
 		curpos_src += col_len;
 		curpos_dst += col_len;
 	}

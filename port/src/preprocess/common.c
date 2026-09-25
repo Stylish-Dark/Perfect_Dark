@@ -2,6 +2,39 @@
 
 static struct ptrmarker ptrMarkers[MAX_PTR_MARKERS];
 static int numPtrMarkers;
+static s32 preprocessFileNum = -1;
+static s32 preprocessBgStage = -1;
+static s32 preprocessEnvironmentTextureLoad = 0;
+
+void preprocessSetFileNum(s32 fileNum)
+{
+	preprocessFileNum = fileNum;
+}
+
+s32 preprocessGetFileNum(void)
+{
+	return preprocessFileNum;
+}
+
+void preprocessSetBgStage(s32 stageNum)
+{
+	preprocessBgStage = stageNum;
+}
+
+s32 preprocessGetBgStage(void)
+{
+	return preprocessBgStage;
+}
+
+void preprocessSetEnvironmentTextureLoad(s32 enabled)
+{
+	preprocessEnvironmentTextureLoad = enabled != 0;
+}
+
+s32 preprocessGetEnvironmentTextureLoad(void)
+{
+	return preprocessEnvironmentTextureLoad;
+}
 
 void ptrAdd(u32 ptr_src, uintptr_t ptr_host)
 {
