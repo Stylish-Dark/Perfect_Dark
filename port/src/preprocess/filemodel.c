@@ -330,7 +330,6 @@ static inline uintptr_t minPtr3(uintptr_t a, uintptr_t b, uintptr_t c) {
 }
 
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum);
-static bool preprocessIsDataDyneCharacterFile(s32 fileNum);
 static bool preprocessIsEnvironmentPropFile(s32 fileNum);
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr);
 
@@ -1071,94 +1070,6 @@ static void preprocessTextureRGBA32Embedded(u32* dest, u32 size_bytes)
  * Do this while embedded body textures are still CPU-side so heads, weapons,
  * HUD elements and unrelated models are left alone.
  */
-static bool preprocessIsDataDyneCharacterFile(s32 fileNum)
-{
-	switch (fileNum) {
-	case FILE_CDDSHOCK:
-	case FILE_CFEM_GUARD:
-	case FILE_CDD_SECGUARD:
-	case FILE_CDD_LABTECH:
-	case FILE_CDD_GUARD:
-	case FILE_CDD_SHOCK:
-	case FILE_CDD_SHOCK_INF:
-	case FILE_CDDSNIPER:
-		return true;
-	}
-
-	return false;
-}
-
-static bool preprocessIsMilitarySecurityCharacterFile(s32 fileNum)
-{
-	switch (fileNum) {
-	case FILE_CA51GUARD:
-	case FILE_CAREA51GUARD:
-	case FILE_CA51TROOPER:
-	case FILE_CA51AIRMAN:
-	case FILE_CNSA_LACKEY:
-	case FILE_CPRES_SECURITY:
-	case FILE_CALASKAN_GUARD:
-	case FILE_CCISOLDIER:
-		return true;
-	}
-
-	return false;
-}
-
-static bool preprocessIsFlightCrewCharacterFile(s32 fileNum)
-{
-	switch (fileNum) {
-	case FILE_CSTEWARD:
-	case FILE_CSTEWARDESS:
-	case FILE_CSTEWARDESS_COAT:
-	case FILE_CPILOTAF1:
-		return true;
-	}
-
-	return false;
-}
-
-static bool preprocessIsTechnicalCharacterFile(s32 fileNum)
-{
-	switch (fileNum) {
-	case FILE_COVERALL:
-	case FILE_CLABTECH:
-	case FILE_CBIOTECH:
-	case FILE_CFEMLABTECH:
-	case FILE_CCILABTECH:
-	case FILE_CCIFEMTECH:
-		return true;
-	}
-
-	return false;
-}
-
-static bool preprocessIsUrbanSecurityCharacterFile(s32 fileNum)
-{
-	switch (fileNum) {
-	case FILE_CCIAGUY:
-	case FILE_CFBIGUY:
-	case FILE_CCHICROB:
-		return true;
-	}
-
-	return false;
-}
-
-static bool preprocessIsCivilianSupportCharacterFile(s32 fileNum)
-{
-	switch (fileNum) {
-	case FILE_COFFICEWORKER:
-	case FILE_COFFICEWORKER2:
-	case FILE_CSECRETARY:
-	case FILE_CSTRIPES:
-	case FILE_CNEGOTIATOR:
-		return true;
-	}
-
-	return false;
-}
-
 static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 {
 	static s32 cachedFileNum = -2;
@@ -1199,17 +1110,10 @@ static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 	return cachedResult;
 }
 
+
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
 {
-	return fileNum == FILE_CG5_GUARD
-		|| fileNum == FILE_CG5_SWAT_GUARD
-		|| fileNum == FILE_CPELAGIC_GUARD
-		|| preprocessIsDataDyneCharacterFile(fileNum)
-		|| preprocessIsMilitarySecurityCharacterFile(fileNum)
-		|| preprocessIsFlightCrewCharacterFile(fileNum)
-		|| preprocessIsTechnicalCharacterFile(fileNum)
-		|| preprocessIsUrbanSecurityCharacterFile(fileNum)
-		|| preprocessIsCivilianSupportCharacterFile(fileNum);
+	return visualRestraintIsCharacterFile(fileNum);
 }
 
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
@@ -1221,124 +1125,7 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 		return;
 	}
 
-	s32 r = *rptr;
-	s32 g = *gptr;
-	s32 b = *bptr;
-	s32 max = r > g ? (r > b ? r : b) : (g > b ? g : b);
-	s32 min = r < g ? (r < b ? r : b) : (g < b ? g : b);
-	s32 chroma = max - min;
-	s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
-
-	// First remove some of the flat, poster-like chroma without flattening value.
-	if (chroma > 24) {
-		s32 blend = 22 + (chroma - 24) / 3;
-		if (blend > 72) {
-			blend = 72;
-		}
-
-		r = (r * (256 - blend) + luma * blend) >> 8;
-		g = (g * (256 - blend) + luma * blend) >> 8;
-		b = (b * (256 - blend) + luma * blend) >> 8;
-	}
-
-	if (fileNum == FILE_CG5_GUARD || fileNum == FILE_CG5_SWAT_GUARD) {
-		// G5's cyan armour reads like an enemy colour code. Pull blue/cyan regions
-		// toward a darker steel/slate while retaining the original hue family.
-		if (b > r + 20 && g > r + 8) {
-			luma = (54 * r + 183 * g + 19 * b) >> 8;
-			r = (3 * r + luma) / 4;
-			g = (3 * g + luma) / 4;
-			b = (3 * b + luma) / 4;
-			r = r * 84 / 100;
-			g = g * 84 / 100;
-			b = b * 84 / 100;
-		}
-	} else if (fileNum == FILE_CPELAGIC_GUARD) {
-		// Pelagic/Deep Sea's clean bright red is the main "Mario with an Uzi"
-		// offender. Darken red fabric toward worn maritime red/burgundy.
-		if (r > g + 28 && r > b + 28) {
-			r = r * 82 / 100;
-			g = (g * 94 + r * 6) / 100;
-			b = (b * 92 + r * 8) / 100;
-		}
-
-		// Stark shirt white becomes a slightly warm, used off-white.
-		max = r > g ? (r > b ? r : b) : (g > b ? g : b);
-		min = r < g ? (r < b ? r : b) : (g < b ? g : b);
-		if (min > 185 && max - min < 40) {
-			r = r * 92 / 100;
-			g = g * 90 / 100;
-			b = b * 86 / 100;
-		}
-	} else if (preprocessIsDataDyneCharacterFile(fileNum)) {
-		// dataDyne's purple remains part of the faction identity, but large bright
-		// violet areas read as graphic design rather than cloth/armour. Keep the
-		// hue family and pull only purple-dominant regions toward darker plum.
-		if (r > g + 10 && b > g + 14 && r > 55 && b > 55) {
-			luma = (54 * r + 183 * g + 19 * b) >> 8;
-			r = (3 * r + luma) / 4;
-			g = (2 * g + luma) / 3;
-			b = (3 * b + luma) / 4;
-			r = r * 90 / 100;
-			g = g * 90 / 100;
-			b = b * 92 / 100;
-		}
-	} else if (preprocessIsMilitarySecurityCharacterFile(fileNum)) {
-		// Military/security uniforms should read as dyed cloth or painted armour,
-		// not clean faction colour. Cool tones become navy/steel, green becomes
-		// olive/drab. Neutral parts are largely unchanged.
-		if (b > r + 18 && b > g + 4) {
-			luma = (54 * r + 183 * g + 19 * b) >> 8;
-			r = (3 * r + luma) / 4;
-			g = (3 * g + luma) / 4;
-			b = (2 * b + luma) / 3;
-			r = r * 90 / 100;
-			g = g * 90 / 100;
-			b = b * 86 / 100;
-		} else if (g > r + 18 && g > b + 8) {
-			// Pull saturated green toward a dirtier olive rather than grey.
-			r = (9 * r + g) / 10;
-			g = g * 86 / 100;
-			b = b * 88 / 100;
-		}
-	} else if (preprocessIsFlightCrewCharacterFile(fileNum)) {
-		// Airline/AF1 clothing keeps its formal colour coding but avoids toy-like
-		// royal blue and bright red.
-		if (b > r + 20 && b > g + 8) {
-			r = r * 90 / 100;
-			g = g * 90 / 100;
-			b = b * 82 / 100;
-		} else if (r > g + 24 && r > b + 20) {
-			r = r * 84 / 100;
-			g = (19 * g + r) / 20;
-			b = (18 * b + 2 * r) / 20;
-		}
-	} else if (preprocessIsTechnicalCharacterFile(fileNum)) {
-		// Technical/lab clothing is mostly neutral; only suppress conspicuous
-		// teal/cyan and make near-white fabric a touch less synthetic.
-		if (g > r + 12 && b > r + 14) {
-			luma = (54 * r + 183 * g + 19 * b) >> 8;
-			r = (3 * r + luma) / 4;
-			g = (3 * g + luma) / 4;
-			b = (3 * b + luma) / 4;
-		}
-
-		max = r > g ? (r > b ? r : b) : (g > b ? g : b);
-		min = r < g ? (r < b ? r : b) : (g < b ? g : b);
-		if (min > 205 && max - min < 28) {
-			r = r * 96 / 100;
-			g = g * 95 / 100;
-			b = b * 92 / 100;
-		}
-	} else if (preprocessIsUrbanSecurityCharacterFile(fileNum)
-			|| preprocessIsCivilianSupportCharacterFile(fileNum)) {
-		// These models are already comparatively grounded. Give them only the
-		// general chroma compression above; no faction-hue rewrite.
-	}
-
-	*rptr = (u8)r;
-	*gptr = (u8)g;
-	*bptr = (u8)b;
+	visualRestraintApplyCharacterPixel(fileNum, rptr, gptr, bptr);
 }
 
 static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxSize, u8 width, u8 height, s32 format)
@@ -1401,6 +1188,55 @@ static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxS
 	// rather than risk corrupting indices. They can be added once runtime asset
 	// inspection confirms which target body textures actually use CI.
 	return false;
+}
+
+
+static u32 preprocessEmbeddedCiTextureSize(u8 width, u8 height, s32 format)
+{
+	if (format == TEXFORMAT_RGBA16_CI8) {
+		return ((width + 7) & 0xff8) * height;
+	}
+
+	if (format == TEXFORMAT_RGBA16_CI4) {
+		return (((width + 15) & 0xff0) >> 1) * height;
+	}
+
+	return 0;
+}
+
+static void preprocessRegisterCharacterCiTextures(u8 *base)
+{
+	const s32 fileNum = preprocessGetFileNum();
+
+	if (!visualRestraintIsCharacterFile(fileNum)) {
+		return;
+	}
+
+	struct modeldef *mdl = (struct modeldef *)base;
+
+	if (!mdl->texconfigs) {
+		return;
+	}
+
+	const u32 ofs = 0x5000000;
+	struct textureconfig *texconfigs = PD_PTR_BASEOFS(mdl->texconfigs, base, ofs);
+
+	for (s16 i = 0; i < mdl->numtexconfigs; i++) {
+		if ((texconfigs[i].texturenum & 0xf000000) != 0x5000000) {
+			continue;
+		}
+
+		const s32 format = texConfigToFormat(&texconfigs[i]);
+		const u32 size = preprocessEmbeddedCiTextureSize(
+			texconfigs[i].width, texconfigs[i].height, format);
+
+		if (!size) {
+			continue;
+		}
+
+		u8 *texdata = PD_PTR_BASEOFS(texconfigs[i].textureptr, base, ofs);
+		visualRestraintRegisterCharacterCiTexture(texdata, size, fileNum);
+	}
 }
 
 static void preprocessModelTextures(u8 *base, u8 *textures_end)
@@ -1470,6 +1306,7 @@ u8 *preprocessModelFile(u8 *data, u32 size, u32 *outSize)
 	}
 	
 	memcpy(data, dst, newSize);
+	preprocessRegisterCharacterCiTextures(data);
 	sysMemFree(dst);
 
 	*outSize = newSize;
