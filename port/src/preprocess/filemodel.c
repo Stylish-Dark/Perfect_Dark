@@ -1070,6 +1070,7 @@ static bool preprocessIsDataDyneCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_CDDSHOCK:
+	case FILE_CFEM_GUARD:
 	case FILE_CDD_SECGUARD:
 	case FILE_CDD_LABTECH:
 	case FILE_CDD_GUARD:
@@ -1139,6 +1140,20 @@ static bool preprocessIsUrbanSecurityCharacterFile(s32 fileNum)
 	return false;
 }
 
+static bool preprocessIsCivilianSupportCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_COFFICEWORKER:
+	case FILE_COFFICEWORKER2:
+	case FILE_CSECRETARY:
+	case FILE_CSTRIPES:
+	case FILE_CNEGOTIATOR:
+		return true;
+	}
+
+	return false;
+}
+
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
 {
 	return fileNum == FILE_CG5_GUARD
@@ -1148,7 +1163,8 @@ static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
 		|| preprocessIsMilitarySecurityCharacterFile(fileNum)
 		|| preprocessIsFlightCrewCharacterFile(fileNum)
 		|| preprocessIsTechnicalCharacterFile(fileNum)
-		|| preprocessIsUrbanSecurityCharacterFile(fileNum);
+		|| preprocessIsUrbanSecurityCharacterFile(fileNum)
+		|| preprocessIsCivilianSupportCharacterFile(fileNum);
 }
 
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
@@ -1262,7 +1278,8 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 			g = g * 95 / 100;
 			b = b * 92 / 100;
 		}
-	} else if (preprocessIsUrbanSecurityCharacterFile(fileNum)) {
+	} else if (preprocessIsUrbanSecurityCharacterFile(fileNum)
+			|| preprocessIsCivilianSupportCharacterFile(fileNum)) {
 		// These models are already comparatively grounded. Give them only the
 		// general chroma compression above; no faction-hue rewrite.
 	}
