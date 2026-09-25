@@ -7,6 +7,8 @@ typedef u8 *(*preprocessfunc)(u8 *data, u32 size, u32 *outSize);
 
 void preprocessSetFileNum(s32 fileNum);
 s32 preprocessGetFileNum(void);
+void preprocessSetBgStage(s32 stageNum);
+s32 preprocessGetBgStage(void);
 
 u8* preprocessAnimations(u8 *data, u32 size, u32 *outSize);
 u8* preprocessMpConfigs(u8 *data, u32 size, u32 *outSize);
