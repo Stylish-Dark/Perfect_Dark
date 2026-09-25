@@ -403,6 +403,9 @@ static struct ShaderProgram* gfx_opengl_create_and_load_new_shader(uint64_t shad
     append_line(fs_buf, &fs_len, "    vec3 chroma = color - vec3(luma);");
     append_line(fs_buf, &fs_len, "    float chroma_strength = max(max(abs(chroma.r), abs(chroma.g)), abs(chroma.b));");
     append_line(fs_buf, &fs_len, "    float high_chroma = smoothstep(0.08, 0.35, chroma_strength);");
+    append_line(fs_buf, &fs_len, "    float peak = max(max(color.r, color.g), color.b);");
+    append_line(fs_buf, &fs_len, "    float emissive_preserve = smoothstep(0.78, 0.98, peak);");
+    append_line(fs_buf, &fs_len, "    high_chroma *= 1.0 - emissive_preserve;");
     append_line(fs_buf, &fs_len, "    float chroma_scale = 1.0 - visual_restraint * high_chroma * 0.55;");
     append_line(fs_buf, &fs_len, "    vec3 restrained = vec3(luma) + chroma * chroma_scale;");
     append_line(fs_buf, &fs_len, "    float contrast = 1.0 + visual_restraint * 0.08;");
