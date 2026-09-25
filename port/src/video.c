@@ -52,8 +52,9 @@ static displaymode *vidModes = &vidModeDefault;
 
 static f32 vidGlareBrightness = 1.f;
 static f32 vidOverexposureScale = 1.f;
-// Fork default: a restrained baseline while keeping the original look available at 0.
-static f32 vidVisualRestraint = 0.6f;
+// Targeted world/material passes now do the heavy lifting. Keep the global
+// shader subtle so UI, weapons and alien technology retain more of PD's identity.
+static f32 vidVisualRestraint = 0.35f;
 
 // Three-point filtering retains N64 texture structure with less bilinear smearing.
 static s32 texFilter = FILTER_THREE_POINT;
