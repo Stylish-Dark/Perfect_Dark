@@ -55,7 +55,8 @@ static f32 vidOverexposureScale = 1.f;
 // Fork default: a restrained baseline while keeping the original look available at 0.
 static f32 vidVisualRestraint = 0.6f;
 
-static s32 texFilter = FILTER_LINEAR;
+// Three-point filtering retains N64 texture structure with less bilinear smearing.
+static s32 texFilter = FILTER_THREE_POINT;
 static s32 texFilter2D = true;
 static s32 texDetail = false;
 static s32 texMipmapFilter = MIPMAP_LINEAR;
