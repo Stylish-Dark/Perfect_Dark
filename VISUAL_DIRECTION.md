@@ -24,7 +24,7 @@ For each final fragment it:
 4. compresses that chroma progressively;
 5. adds a small contrast lift to retain contour.
 
-The fork defaults to 0.6. Setting **Extended Video Options -> Visual Restraint** to 0 restores the original colour response.
+The renderer pass defaults to 0.6. Setting **Extended Video Options -> Visual Restraint** to 0 disables the global shader grade; model- and stage-specific fork treatments remain active.
 
 ## Targeted character pass
 
@@ -36,13 +36,14 @@ The first model-specific treatment now runs during PC model preprocessing for th
 - RGBA16 and RGBA32 embedded textures are handled now. Paletted CI textures are deliberately left alone until their palettes can be identified safely rather than blindly modifying colour indices.
 - The same target body models now have their actual model colour arrays restrained too, covering uniforms whose colour comes from vertex/material tint rather than texture pixels.
 - **dataDyne guard family** — security, standard guard, shock infantry, lab tech and sniper bodies now selectively pull purple-dominant material colours toward darker plum/charcoal while leaving neutral fabric and skin-adjacent tones alone.
+- **dataDyne architecture** — Defection, Investigation, Extraction and Mr Blonde's Revenge room colour arrays selectively compress non-emissive purple material tints while preserving very bright accents.
 
 ## Targeted asset pass: next
 
 The global pass remains a baseline rather than the final treatment. Next priorities are:
 
 - inspect target body models at runtime to determine whether any remaining visible uniform regions use CI palettes;
-- **dataDyne interiors and uniforms** — keep violet branding but pull large flat purples toward charcoal/plum; preserve small illuminated accents;
+- review the first dataDyne architectural pass in-game and tune it from screenshots before broadening it;
 - **environmental materials** — identify large flat-colour surfaces that would benefit from dirt, wear, mottling or restrained hue variation.
 
 The goal is not to make Perfect Dark grey or to imitate GoldenEye asset-for-asset. The goal is to make Perfect Dark's world look less visibly colour-designed and more materially plausible.
