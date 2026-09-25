@@ -46,6 +46,7 @@ struct Framebuffer {
 };
 
 static std::map<pair<uint64_t, uint32_t>, struct ShaderProgram> shader_program_pool;
+static struct ShaderProgram* current_shader_program = nullptr;
 static GLuint opengl_vbo;
 static GLuint opengl_vao;
 static bool current_depth_mask;
@@ -126,6 +127,7 @@ static void gfx_opengl_unload_shader(struct ShaderProgram* old_prg) {
 static void gfx_opengl_load_shader(struct ShaderProgram* new_prg) {
     // if (!new_prg) return;
     glUseProgram(new_prg->opengl_program_id);
+    current_shader_program = new_prg;
     gfx_opengl_vertex_array_set_attribs(new_prg);
     gfx_opengl_set_uniforms(new_prg);
 }
@@ -694,6 +696,7 @@ static void gfx_opengl_shader_get_info(struct ShaderProgram* prg, uint8_t* num_i
 
 static void gfx_opengl_clear_shaders(void) {
     glUseProgram(0);
+    current_shader_program = nullptr;
     for (auto& pair : shader_program_pool) {
         glDeleteProgram(pair.second.opengl_program_id);
     }
@@ -1304,6 +1307,10 @@ static void gfx_opengl_set_anisotropy_level(int level) {
 
 static void gfx_opengl_set_visual_restraint(float amount) {
     current_visual_restraint = amount < 0.0f ? 0.0f : (amount > 1.0f ? 1.0f : amount);
+
+    if (current_shader_program && current_shader_program->visual_restraint_location >= 0) {
+        glUniform1f(current_shader_program->visual_restraint_location, current_visual_restraint);
+    }
 }
 
 struct GfxRenderingAPI gfx_opengl_api = {

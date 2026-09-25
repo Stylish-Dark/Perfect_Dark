@@ -2742,7 +2742,6 @@ extern "C" void gfx_set_mipmap_filter(enum MipmapFilteringMode mode) {
 }
 
 extern "C" void gfx_set_visual_restraint(float amount) {
-    reset_texture_state();
     gfx_rapi->set_visual_restraint(amount);
 }
 
