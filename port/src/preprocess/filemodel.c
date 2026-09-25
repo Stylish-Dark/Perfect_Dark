@@ -1167,9 +1167,15 @@ static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 	}
 
 	// Physical fixtures only. Do not sweep weapons, pickups or arbitrary props.
+	// Alien fixtures are intentionally allowed to violate the human material grammar.
+	if (!strncmp(name, "Psk", 3) || !strncmp(name, "Pcetan", 6) || !strncmp(name, "Pborg", 5)) {
+		return false;
+	}
+
 	static const char *tokens[] = {
 		"door", "lift", "crate", "table", "chair", "desk", "cabinet",
-		"locker", "gate", "barrier", "mainframe", "pillar"
+		"locker", "gate", "barrier", "mainframe", "pillar", "wall",
+		"panel", "console"
 	};
 
 	for (s32 i = 0; i < ARRAYCOUNT(tokens); i++) {
