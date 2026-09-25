@@ -1161,6 +1161,16 @@ static bool preprocessIsCivilianSupportCharacterFile(s32 fileNum)
 
 static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 {
+	static s32 cachedFileNum = -2;
+	static bool cachedResult = false;
+
+	if (fileNum == cachedFileNum) {
+		return cachedResult;
+	}
+
+	cachedFileNum = fileNum;
+	cachedResult = false;
+
 	const char *name = romdataFileGetName(fileNum);
 
 	if (!name || name[0] != 'P') {
@@ -1181,11 +1191,12 @@ static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 
 	for (s32 i = 0; i < ARRAYCOUNT(tokens); i++) {
 		if (strstr(name, tokens[i])) {
-			return true;
+			cachedResult = true;
+			break;
 		}
 	}
 
-	return false;
+	return cachedResult;
 }
 
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
