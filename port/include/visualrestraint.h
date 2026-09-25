@@ -16,5 +16,6 @@ enum visualrestraintstageprofile {
 enum visualrestraintstageprofile visualRestraintGetStageProfile(s32 stage);
 void visualRestraintApplyEnvironmentPixel(enum visualrestraintstageprofile profile, u8 *r, u8 *g, u8 *b);
 void visualRestraintApplyAtmospherePixel(s32 stage, u8 *r, u8 *g, u8 *b);
+void visualRestraintApplyAtmosphereFloat(s32 stage, f32 *r, f32 *g, f32 *b);
 
 #endif

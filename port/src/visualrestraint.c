@@ -175,3 +175,16 @@ void visualRestraintApplyAtmospherePixel(s32 stage, u8 *rptr, u8 *gptr, u8 *bptr
 	*gptr = (u8)g;
 	*bptr = (u8)b;
 }
+
+void visualRestraintApplyAtmosphereFloat(s32 stage, f32 *rptr, f32 *gptr, f32 *bptr)
+{
+	u8 r = (u8)(*rptr < 0.0f ? 0 : (*rptr > 255.0f ? 255 : (s32)(*rptr + 0.5f)));
+	u8 g = (u8)(*gptr < 0.0f ? 0 : (*gptr > 255.0f ? 255 : (s32)(*gptr + 0.5f)));
+	u8 b = (u8)(*bptr < 0.0f ? 0 : (*bptr > 255.0f ? 255 : (s32)(*bptr + 0.5f)));
+
+	visualRestraintApplyAtmospherePixel(stage, &r, &g, &b);
+
+	*rptr = (f32)r;
+	*gptr = (f32)g;
+	*bptr = (f32)b;
+}
