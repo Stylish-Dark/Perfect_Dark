@@ -105,6 +105,39 @@ struct vtx {
 	u16 t;
 };
 
+static bool isRestrainedDataDyneStage(void)
+{
+	const s32 stage = preprocessGetBgStage();
+
+	return stage == STAGE_DEFECTION
+		|| stage == STAGE_INVESTIGATION
+		|| stage == STAGE_EXTRACTION
+		|| stage == STAGE_MBR;
+}
+
+static void restrainDataDyneRoomColours(Col *colours, u32 count)
+{
+	for (u32 i = 0; i < count; i++) {
+		s32 r = colours[i].r;
+		s32 g = colours[i].g;
+		s32 b = colours[i].b;
+		s32 max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+
+		// Treat broad purple material tint, but leave very bright accents alone.
+		if (max < 232 && r > g + 12 && b > g + 16 && r > 48 && b > 48) {
+			const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
+
+			r = (3 * r + 2 * luma) / 5;
+			g = (3 * g + 2 * luma) / 5;
+			b = (3 * b + 2 * luma) / 5;
+
+			colours[i].r = (u8)(r * 92 / 100);
+			colours[i].g = (u8)(g * 92 / 100);
+			colours[i].b = (u8)(b * 94 / 100);
+		}
+	}
+}
+
 static void convertPrimaryRooms(u8 *dst, u32 *dstpos, u8 *src, u32 *srcpos)
 {
 	struct n64_bgroom *n64_rooms = (struct n64_bgroom *) &src[*srcpos];
@@ -364,6 +397,15 @@ static u32 convertRoomGfxData(u8 *dst, u8 *src, u32 infsize, u32 src_ofs)
 		size_t col_len = col_end - curpos_src;
 
 		memcpy(dst + curpos_dst, src + curpos_src, col_len);
+
+		if (isRestrainedDataDyneStage()) {
+			const u32 availableColours = col_len / sizeof(Col);
+			const u32 colourCount = dst_header->numcolours < availableColours
+				? dst_header->numcolours
+				: availableColours;
+			restrainDataDyneRoomColours((Col *)(dst + curpos_dst), colourCount);
+		}
+
 		curpos_src += col_len;
 		curpos_dst += col_len;
 	}
