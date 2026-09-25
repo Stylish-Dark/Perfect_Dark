@@ -34,6 +34,7 @@ The first model-specific treatment now runs during PC model preprocessing for th
 - **Pelagic guard** — used in both Pelagic II and Deep Sea; bright red direct-colour texels are pushed toward worn maritime red/burgundy and near-white cloth becomes a warmer off-white.
 - Heads and unrelated models are not touched because the treatment is keyed to the body model file number.
 - RGBA16 and RGBA32 embedded textures are handled now. Paletted CI textures are deliberately left alone until their palettes can be identified safely rather than blindly modifying colour indices.
+- The same target body models now have their actual model colour arrays restrained too, covering uniforms whose colour comes from vertex/material tint rather than texture pixels.
 
 ## Targeted asset pass: next
 

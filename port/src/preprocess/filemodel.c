@@ -327,6 +327,8 @@ static inline uintptr_t minPtr3(uintptr_t a, uintptr_t b, uintptr_t c) {
 	return minPtr(minPtr(a, b), c);
 }
 
+static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr);
+
 static struct marker *findMarker(u32 src_offset)
 {
 	for (int i = 0; i < numContentMarkers; i++) {
@@ -632,6 +634,33 @@ static u32 convertContent(u8 *dst, u8 *src, u32 src_file_len)
 		case CT_VTXCOL4:
 			{
 				memcpy(dst_thing, src_thing, src_len);
+
+				// Character models frequently use vertex colour as a material tint.
+				// Restrict this to actual colour arrays (not vertex arrays) belonging
+				// to the same G5/Pelagic body files targeted by the texture pass.
+				const s32 fileNum = preprocessGetFileNum();
+				if (marker->type == CT_VTXCOL
+						&& (fileNum == FILE_CG5_GUARD
+							|| fileNum == FILE_CG5_SWAT_GUARD
+							|| fileNum == FILE_CPELAGIC_GUARD)) {
+					struct marker *parent = findMarker(marker->parent_src_offset);
+
+					if (parent && parent->type == CT_RODATA_DL) {
+						struct n64_rodata_dl *src_dl = (struct n64_rodata_dl *)&src[parent->src_offset];
+						const u32 colourOffset = PD_BE32(src_dl->ptr_colours) & 0x00ffffff;
+						const u32 numColours = PD_BE16(src_dl->numcolours);
+
+						if (colourOffset == marker->src_offset && numColours * sizeof(Col) <= src_len) {
+							Col *colours = (Col *)dst_thing;
+
+							for (u32 i = 0; i < numColours; i++) {
+								preprocessRestrainedCharacterPixel(fileNum,
+									&colours[i].r, &colours[i].g, &colours[i].b);
+							}
+						}
+					}
+				}
+
 				dstpos += src_len;
 				break;
 			}
