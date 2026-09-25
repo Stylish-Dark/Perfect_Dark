@@ -283,8 +283,8 @@ void envApplyNoFogEnvironment(struct nofogenvironment *env)
 
 #ifndef PLATFORM_N64
 	visualRestraintApplyAtmospherePixel(env->stage, &g_Env.sky_r, &g_Env.sky_g, &g_Env.sky_b);
-	visualRestraintApplyAtmospherePixel(env->stage, &g_Env.clouds_r, &g_Env.clouds_g, &g_Env.clouds_b);
-	visualRestraintApplyAtmospherePixel(env->stage, &g_Env.water_r, &g_Env.water_g, &g_Env.water_b);
+	visualRestraintApplyAtmosphereFloat(env->stage, &g_Env.clouds_r, &g_Env.clouds_g, &g_Env.clouds_b);
+	visualRestraintApplyAtmosphereFloat(env->stage, &g_Env.water_r, &g_Env.water_g, &g_Env.water_b);
 	g_Env.skyredfrac = g_Env.sky_r / 255.0f;
 	g_Env.skygreenfrac = g_Env.sky_g / 255.0f;
 	g_Env.skybluefrac = g_Env.sky_b / 255.0f;
