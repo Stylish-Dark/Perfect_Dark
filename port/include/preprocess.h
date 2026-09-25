@@ -9,6 +9,8 @@ void preprocessSetFileNum(s32 fileNum);
 s32 preprocessGetFileNum(void);
 void preprocessSetBgStage(s32 stageNum);
 s32 preprocessGetBgStage(void);
+void preprocessSetEnvironmentTextureLoad(s32 enabled);
+s32 preprocessGetEnvironmentTextureLoad(void);
 
 u8* preprocessAnimations(u8 *data, u32 size, u32 *outSize);
 u8* preprocessMpConfigs(u8 *data, u32 size, u32 *outSize);
