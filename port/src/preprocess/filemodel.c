@@ -7,6 +7,8 @@
 #include "files.h"
 #include "game/texdecompress.h"
 
+#include "romdata.h"
+#include "visualrestraint.h"
 #include "preprocess/common.h"
 #include "preprocess/gbi.h"
 
@@ -641,7 +643,9 @@ static u32 convertContent(u8 *dst, u8 *src, u32 src_file_len)
 				// Restrict this to actual colour arrays (not vertex arrays) belonging
 				// to the same G5/Pelagic body files targeted by the texture pass.
 				const s32 fileNum = preprocessGetFileNum();
-				if (marker->type == CT_VTXCOL && preprocessIsRestrainedCharacterFile(fileNum)) {
+				if (marker->type == CT_VTXCOL
+						&& (preprocessIsRestrainedCharacterFile(fileNum)
+							|| preprocessIsEnvironmentPropFile(fileNum))) {
 					struct marker *parent = findMarker(marker->parent_src_offset);
 
 					if (parent && parent->type == CT_RODATA_DL) {
@@ -1154,6 +1158,29 @@ static bool preprocessIsCivilianSupportCharacterFile(s32 fileNum)
 	return false;
 }
 
+static bool preprocessIsEnvironmentPropFile(s32 fileNum)
+{
+	const char *name = romdataFileGetName(fileNum);
+
+	if (!name || name[0] != 'P') {
+		return false;
+	}
+
+	// Physical fixtures only. Do not sweep weapons, pickups or arbitrary props.
+	static const char *tokens[] = {
+		"door", "lift", "crate", "table", "chair", "desk", "cabinet",
+		"locker", "gate", "barrier", "mainframe", "pillar"
+	};
+
+	for (s32 i = 0; i < ARRAYCOUNT(tokens); i++) {
+		if (strstr(name, tokens[i])) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
 {
 	return fileNum == FILE_CG5_GUARD
@@ -1169,6 +1196,13 @@ static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
 
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
 {
+	if (preprocessIsEnvironmentPropFile(fileNum)) {
+		const enum visualrestraintstageprofile profile =
+			visualRestraintGetStageProfile(preprocessGetBgStage());
+		visualRestraintApplyEnvironmentPixel(profile, rptr, gptr, bptr);
+		return;
+	}
+
 	s32 r = *rptr;
 	s32 g = *gptr;
 	s32 b = *bptr;
@@ -1291,7 +1325,8 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 
 static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxSize, u8 width, u8 height, s32 format)
 {
-	if (!preprocessIsRestrainedCharacterFile(fileNum)) {
+	if (!preprocessIsRestrainedCharacterFile(fileNum)
+			&& !preprocessIsEnvironmentPropFile(fileNum)) {
 		return false;
 	}
 
