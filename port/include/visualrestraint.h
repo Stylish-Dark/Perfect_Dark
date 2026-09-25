@@ -2,7 +2,6 @@
 #define PORT_VISUAL_RESTRAINT_H
 
 #include <PR/ultratypes.h>
-#include <stdbool.h>
 
 enum visualrestraintstageprofile {
 	VISUAL_RESTRAINT_STAGE_NONE,
@@ -19,7 +18,7 @@ void visualRestraintApplyEnvironmentPixel(enum visualrestraintstageprofile profi
 void visualRestraintApplyAtmospherePixel(s32 stage, u8 *r, u8 *g, u8 *b);
 void visualRestraintApplyAtmosphereFloat(s32 stage, f32 *r, f32 *g, f32 *b);
 
-bool visualRestraintIsCharacterFile(s32 fileNum);
+s32 visualRestraintIsCharacterFile(s32 fileNum);
 void visualRestraintApplyCharacterPixel(s32 fileNum, u8 *r, u8 *g, u8 *b);
 void visualRestraintRegisterCiTexture(const u8 *addr, u32 size, s32 fileNum, enum visualrestraintstageprofile profile);
 void visualRestraintResetCharacterCiRegistry(void);

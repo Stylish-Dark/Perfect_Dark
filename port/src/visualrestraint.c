@@ -218,7 +218,7 @@ static u32 visualRestraintTextureFingerprint(const u8 *addr, u32 size)
 	return hash;
 }
 
-static bool visualRestraintIsDataDyneCharacterFile(s32 fileNum)
+static s32 visualRestraintIsDataDyneCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_CDDSHOCK:
@@ -235,7 +235,7 @@ static bool visualRestraintIsDataDyneCharacterFile(s32 fileNum)
 	return false;
 }
 
-static bool visualRestraintIsMilitarySecurityCharacterFile(s32 fileNum)
+static s32 visualRestraintIsMilitarySecurityCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_CA51GUARD:
@@ -252,7 +252,7 @@ static bool visualRestraintIsMilitarySecurityCharacterFile(s32 fileNum)
 	return false;
 }
 
-static bool visualRestraintIsFlightCrewCharacterFile(s32 fileNum)
+static s32 visualRestraintIsFlightCrewCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_CSTEWARD:
@@ -265,7 +265,7 @@ static bool visualRestraintIsFlightCrewCharacterFile(s32 fileNum)
 	return false;
 }
 
-static bool visualRestraintIsTechnicalCharacterFile(s32 fileNum)
+static s32 visualRestraintIsTechnicalCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_COVERALL:
@@ -280,7 +280,7 @@ static bool visualRestraintIsTechnicalCharacterFile(s32 fileNum)
 	return false;
 }
 
-static bool visualRestraintIsUrbanSecurityCharacterFile(s32 fileNum)
+static s32 visualRestraintIsUrbanSecurityCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_CCIAGUY:
@@ -292,7 +292,7 @@ static bool visualRestraintIsUrbanSecurityCharacterFile(s32 fileNum)
 	return false;
 }
 
-static bool visualRestraintIsCivilianSupportCharacterFile(s32 fileNum)
+static s32 visualRestraintIsCivilianSupportCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
 	case FILE_COFFICEWORKER:
@@ -306,7 +306,7 @@ static bool visualRestraintIsCivilianSupportCharacterFile(s32 fileNum)
 	return false;
 }
 
-bool visualRestraintIsCharacterFile(s32 fileNum)
+s32 visualRestraintIsCharacterFile(s32 fileNum)
 {
 	return fileNum == FILE_CG5_GUARD
 		|| fileNum == FILE_CG5_SWAT_GUARD
@@ -443,7 +443,7 @@ void visualRestraintRegisterCiTexture(const u8 *addr, u32 size, s32 fileNum,
 	const s32 characterFile = visualRestraintIsCharacterFile(fileNum) ? fileNum : -1;
 	const enum visualrestraintstageprofile environmentProfile =
 		characterFile >= 0 ? VISUAL_RESTRAINT_STAGE_NONE : profile;
-	const bool target = characterFile >= 0 || environmentProfile != VISUAL_RESTRAINT_STAGE_NONE;
+	const s32 target = characterFile >= 0 || environmentProfile != VISUAL_RESTRAINT_STAGE_NONE;
 	const u32 fingerprint = visualRestraintTextureFingerprint(addr, size);
 
 	for (s32 i = 0; i < g_VisualRestraintCiTextureCount; i++) {
