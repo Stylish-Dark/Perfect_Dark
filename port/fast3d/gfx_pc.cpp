@@ -25,6 +25,10 @@
 
 #include "platform.h"
 
+extern "C" {
+#include "visualrestraint.h"
+}
+
 #include "gfx_pc.h"
 #include "gfx_cc.h"
 #include "gfx_window_manager_api.h"
@@ -822,12 +826,20 @@ static void import_texture_ci4(int tile, const LoadedTexture& loaded_texture, bo
     const uint32_t line_size_bytes = loaded_texture.line_size_bytes;
     const uint32_t pal_idx = rdp.texture_tile[tile].palette; // 0-15
     const uint16_t* palette = (const uint16_t *)(rdp.palette + pal_idx * 16); // 16 pixel entries, 16 bits each
+    const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindCharacterCiTextureFile(addr)
+        : -1;
     SUPPORT_CHECK(full_image_line_size_bytes == line_size_bytes);
 
     for (uint32_t i = 0; i < size_bytes * 2; i++) {
         const uint8_t byte = addr[i / 2];
         const uint8_t idx = (byte >> (4 - (i % 2) * 4)) & 0xf;
-        palette_to_rgba32(palette[idx], tex_upload_buffer +4 * i);
+        uint8_t *rgba = tex_upload_buffer + 4 * i;
+        palette_to_rgba32(palette[idx], rgba);
+
+        if (restraint_file >= 0) {
+            visualRestraintApplyCharacterPixel(restraint_file, &rgba[0], &rgba[1], &rgba[2]);
+        }
     }
 
     uint32_t result_line_size = rdp.texture_tile[tile].line_size_bytes;
@@ -849,10 +861,19 @@ static void import_texture_ci8(int tile, const LoadedTexture& loaded_texture, bo
         loaded_texture.full_image_line_size_bytes;
     const uint32_t line_size_bytes = loaded_texture.line_size_bytes;
 
+    const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindCharacterCiTextureFile(addr)
+        : -1;
+
     for (uint32_t i = 0, j = 0; i < size_bytes; j += full_image_line_size_bytes - line_size_bytes) {
         for (uint32_t k = 0; k < line_size_bytes; i++, k++, j++) {
             const uint8_t idx = addr[j];
-            palette_to_rgba32(rdp.palette[idx], tex_upload_buffer + 4 * i);
+            uint8_t *rgba = tex_upload_buffer + 4 * i;
+            palette_to_rgba32(rdp.palette[idx], rgba);
+
+            if (restraint_file >= 0) {
+                visualRestraintApplyCharacterPixel(restraint_file, &rgba[0], &rgba[1], &rgba[2]);
+            }
         }
     }
 
