@@ -1097,7 +1097,8 @@ static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 	static const char *tokens[] = {
 		"door", "lift", "crate", "table", "chair", "desk", "cabinet",
 		"locker", "gate", "barrier", "mainframe", "pillar", "wall",
-		"panel", "console"
+		"panel", "console", "shutter", "airlock", "window", "trolley",
+		"wastebin", "fan", "sofa"
 	};
 
 	for (s32 i = 0; i < ARRAYCOUNT(tokens); i++) {
