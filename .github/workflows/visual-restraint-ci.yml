@@ -13,6 +13,10 @@ on:
       - "VISUAL_DIRECTION.md"
   workflow_dispatch:
 
+concurrency:
+  group: visual-restraint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-x86_64-windows:
     runs-on: windows-latest
