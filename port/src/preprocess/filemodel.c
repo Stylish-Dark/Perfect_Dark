@@ -1366,6 +1366,13 @@ static void preprocessRegisterCiTextures(u8 *base)
 		return;
 	}
 
+	const enum visualrestraintstageprofile profile = preprocessIsEnvironmentPropFile(fileNum)
+		? visualRestraintGetStageProfile(preprocessGetBgStage())
+		: VISUAL_RESTRAINT_STAGE_NONE;
+	const s32 targeted = visualRestraintIsCharacterFile(fileNum)
+		|| profile != VISUAL_RESTRAINT_STAGE_NONE;
+	s32 registered = 0;
+
 	const u32 ofs = 0x5000000;
 	struct textureconfig *texconfigs = PD_PTR_BASEOFS(mdl->texconfigs, base, ofs);
 
@@ -1383,10 +1390,16 @@ static void preprocessRegisterCiTextures(u8 *base)
 		}
 
 		u8 *texdata = PD_PTR_BASEOFS(texconfigs[i].textureptr, base, ofs);
-		const enum visualrestraintstageprofile profile = preprocessIsEnvironmentPropFile(fileNum)
-			? visualRestraintGetStageProfile(preprocessGetBgStage())
-			: VISUAL_RESTRAINT_STAGE_NONE;
 		visualRestraintRegisterCiTexture(texdata, size, fileNum, profile);
+
+		if (targeted) {
+			registered++;
+		}
+	}
+
+	if (registered > 0) {
+		sysLogPrintf(LOG_NOTE, "visual restraint: model file 0x%x registered %d CI texture(s), profile %d",
+			fileNum, registered, profile);
 	}
 }
 

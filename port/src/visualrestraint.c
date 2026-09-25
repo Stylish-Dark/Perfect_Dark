@@ -427,7 +427,7 @@ void visualRestraintApplyCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bpt
 	*bptr = (u8)b;
 }
 
-void visualRestraintResetCharacterCiRegistry(void)
+void visualRestraintResetCiRegistry(void)
 {
 	g_VisualRestraintCiTextureCount = 0;
 	g_VisualRestraintCiTextureNext = 0;
