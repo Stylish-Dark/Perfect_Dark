@@ -1,0 +1,75 @@
+name: Visual Restraint CI
+
+on:
+  push:
+    branches: [ "visual-restraint" ]
+  pull_request:
+    branches: [ "port" ]
+    paths:
+      - "port/**"
+      - "src/**"
+      - "CMakeLists.txt"
+      - ".github/workflows/visual-restraint-ci.yml"
+      - "VISUAL_DIRECTION.md"
+  workflow_dispatch:
+
+jobs:
+  build-x86_64-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            git
+            make
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-python
+            mingw-w64-x86_64-SDL2
+            mingw-w64-x86_64-zlib
+            mingw-w64-x86_64-cmake
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -G"Unix Makefiles" -Bbuild .
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Package Windows test build
+        run: |
+          mkdir -p bin/data
+          cp build/pd.x86_64.exe bin/
+          cp /mingw64/bin/{SDL2.dll,zlib1.dll,libwinpthread-1.dll,libgcc_s_seh-1.dll} bin/
+          touch bin/data/put_pd.ntsc-final.z64_here.txt
+
+      - name: Upload Windows test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-restraint-x86_64-windows
+          path: bin/
+          retention-days: 14
+
+  build-x86_64-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git gcc g++ make libsdl2-dev zlib1g-dev cmake
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -G"Unix Makefiles" -Bbuild .
+
+      - name: Build
+        run: cmake --build build -j
