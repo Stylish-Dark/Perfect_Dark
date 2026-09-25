@@ -1130,6 +1130,154 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 	visualRestraintApplyCharacterPixel(fileNum, rptr, gptr, bptr);
 }
 
+static void preprocessApplyDirectTextureMicrocontrast(s32 fileNum, u8 *data, u32 maxSize,
+		u8 width, u8 height, s32 format)
+{
+	const s32 maxDelta = preprocessIsEnvironmentPropFile(fileNum) ? 5
+		: (visualRestraintIsCharacterFile(fileNum) ? 4 : 0);
+
+	if (!maxDelta) {
+		return;
+	}
+
+	u64 lumaTotal = 0;
+	u32 opaqueCount = 0;
+
+	if (format == TEXFORMAT_RGBA16) {
+		const u32 stride = ((width + 3) & ~3) * 2;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 2;
+				const u16 rgba = (pixel[0] << 8) | pixel[1];
+
+				if (!(rgba & 1)) {
+					continue;
+				}
+
+				const s32 r = ((rgba >> 11) & 0x1f) * 255 / 31;
+				const s32 g = ((rgba >> 6) & 0x1f) * 255 / 31;
+				const s32 b = ((rgba >> 1) & 0x1f) * 255 / 31;
+				lumaTotal += (54 * r + 183 * g + 19 * b) >> 8;
+				opaqueCount++;
+			}
+		}
+
+		if (!opaqueCount) {
+			return;
+		}
+
+		const s32 averageLuma = (s32)(lumaTotal / opaqueCount);
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 2;
+				u16 rgba = (pixel[0] << 8) | pixel[1];
+
+				if (!(rgba & 1)) {
+					continue;
+				}
+
+				s32 r = ((rgba >> 11) & 0x1f) * 255 / 31;
+				s32 g = ((rgba >> 6) & 0x1f) * 255 / 31;
+				s32 b = ((rgba >> 1) & 0x1f) * 255 / 31;
+				const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				s32 delta = (luma - averageLuma) / 18;
+
+				if (delta < -maxDelta) {
+					delta = -maxDelta;
+				} else if (delta > maxDelta) {
+					delta = maxDelta;
+				}
+
+				r += delta;
+				g += delta;
+				b += delta;
+
+				r = r < 0 ? 0 : (r > 255 ? 255 : r);
+				g = g < 0 ? 0 : (g > 255 ? 255 : g);
+				b = b < 0 ? 0 : (b > 255 ? 255 : b);
+
+				rgba = ((r * 31 / 255) << 11)
+					| ((g * 31 / 255) << 6)
+					| ((b * 31 / 255) << 1)
+					| 1;
+				pixel[0] = rgba >> 8;
+				pixel[1] = rgba & 0xff;
+			}
+		}
+
+		return;
+	}
+
+	if (format == TEXFORMAT_RGBA32) {
+		const u32 stride = ((width + 3) & ~3) * 4;
+		const u32 required = stride * height;
+
+		if (required > maxSize) {
+			return;
+		}
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 4;
+
+				if (!pixel[3]) {
+					continue;
+				}
+
+				lumaTotal += (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+				opaqueCount++;
+			}
+		}
+
+		if (!opaqueCount) {
+			return;
+		}
+
+		const s32 averageLuma = (s32)(lumaTotal / opaqueCount);
+
+		for (u32 y = 0; y < height; y++) {
+			for (u32 x = 0; x < width; x++) {
+				u8 *pixel = data + y * stride + x * 4;
+
+				if (!pixel[3]) {
+					continue;
+				}
+
+				const s32 luma = (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				s32 delta = (luma - averageLuma) / 18;
+
+				if (delta < -maxDelta) {
+					delta = -maxDelta;
+				} else if (delta > maxDelta) {
+					delta = maxDelta;
+				}
+
+				for (s32 channel = 0; channel < 3; channel++) {
+					s32 value = pixel[channel] + delta;
+					pixel[channel] = (u8)(value < 0 ? 0 : (value > 255 ? 255 : value));
+				}
+			}
+		}
+	}
+}
+
 static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxSize, u8 width, u8 height, s32 format)
 {
 	if (!preprocessIsRestrainedCharacterFile(fileNum)
@@ -1165,6 +1313,7 @@ static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxS
 			}
 		}
 
+		preprocessApplyDirectTextureMicrocontrast(fileNum, data, maxSize, width, height, format);
 		return true;
 	}
 
@@ -1183,6 +1332,7 @@ static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxS
 			}
 		}
 
+		preprocessApplyDirectTextureMicrocontrast(fileNum, data, maxSize, width, height, format);
 		return true;
 	}
 
