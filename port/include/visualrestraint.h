@@ -2,6 +2,7 @@
 #define PORT_VISUAL_RESTRAINT_H
 
 #include <PR/ultratypes.h>
+#include <stdbool.h>
 
 enum visualrestraintstageprofile {
 	VISUAL_RESTRAINT_STAGE_NONE,
