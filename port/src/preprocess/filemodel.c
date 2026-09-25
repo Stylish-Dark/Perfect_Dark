@@ -1165,7 +1165,13 @@ static void preprocessApplyDirectTextureMicrocontrast(s32 fileNum, u8 *data, u32
 				const s32 r = ((rgba >> 11) & 0x1f) * 255 / 31;
 				const s32 g = ((rgba >> 6) & 0x1f) * 255 / 31;
 				const s32 b = ((rgba >> 1) & 0x1f) * 255 / 31;
-				lumaTotal += (54 * r + 183 * g + 19 * b) >> 8;
+				const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				lumaTotal += luma;
 				opaqueCount++;
 			}
 		}
@@ -1238,7 +1244,13 @@ static void preprocessApplyDirectTextureMicrocontrast(s32 fileNum, u8 *data, u32
 					continue;
 				}
 
-				lumaTotal += (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+				const s32 luma = (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+
+				if (luma < 28 || luma > 228) {
+					continue;
+				}
+
+				lumaTotal += luma;
 				opaqueCount++;
 			}
 		}

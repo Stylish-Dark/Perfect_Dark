@@ -535,7 +535,13 @@ void visualRestraintApplyTextureMicrocontrast(u8 *rgba, u32 pixelCount, s32 maxD
 			continue;
 		}
 
-		lumaTotal += (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+		const s32 luma = (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+
+		if (luma < 28 || luma > 228) {
+			continue;
+		}
+
+		lumaTotal += luma;
 		opaqueCount++;
 	}
 
