@@ -331,6 +331,7 @@ static inline uintptr_t minPtr3(uintptr_t a, uintptr_t b, uintptr_t c) {
 
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum);
 static bool preprocessIsDataDyneCharacterFile(s32 fileNum);
+static bool preprocessIsEnvironmentPropFile(s32 fileNum);
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr);
 
 static struct marker *findMarker(u32 src_offset)
