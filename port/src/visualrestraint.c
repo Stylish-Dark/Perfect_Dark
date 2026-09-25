@@ -48,6 +48,16 @@ enum visualrestraintstageprofile visualRestraintGetStageProfile(s32 stage)
 	case STAGE_DUEL:
 	case STAGE_MP_CARPARK:
 	case STAGE_MP_WAREHOUSE:
+	case STAGE_MP_RAVINE:
+	case STAGE_MP_PIPES:
+	case STAGE_MP_TEMPLE:
+	case STAGE_MP_COMPLEX:
+	case STAGE_MP_BASE:
+	case STAGE_MP_RUINS:
+	case STAGE_MP_SEWERS:
+	case STAGE_MP_FELICITY:
+	case STAGE_MP_FORTRESS:
+	case STAGE_MP_GRID:
 		return VISUAL_RESTRAINT_STAGE_GROUNDED;
 	}
 
