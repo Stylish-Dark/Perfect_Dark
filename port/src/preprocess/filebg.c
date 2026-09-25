@@ -105,36 +105,144 @@ struct vtx {
 	u16 t;
 };
 
-static bool isRestrainedDataDyneStage(void)
-{
-	const s32 stage = preprocessGetBgStage();
+enum restraintstageprofile {
+	RESTRAINT_STAGE_NONE,
+	RESTRAINT_STAGE_GROUNDED,
+	RESTRAINT_STAGE_DATADYNE,
+	RESTRAINT_STAGE_G5,
+	RESTRAINT_STAGE_MARITIME,
+	RESTRAINT_STAGE_AREA51,
+	RESTRAINT_STAGE_AVIATION,
+};
 
-	return stage == STAGE_DEFECTION
-		|| stage == STAGE_INVESTIGATION
-		|| stage == STAGE_EXTRACTION
-		|| stage == STAGE_MBR;
+static enum restraintstageprofile getRestraintStageProfile(void)
+{
+	switch (preprocessGetBgStage()) {
+	case STAGE_DEFECTION:
+	case STAGE_INVESTIGATION:
+	case STAGE_EXTRACTION:
+	case STAGE_MBR:
+		return RESTRAINT_STAGE_DATADYNE;
+
+	case STAGE_G5BUILDING:
+	case STAGE_MP_G5BUILDING:
+		return RESTRAINT_STAGE_G5;
+
+	case STAGE_PELAGIC:
+	case STAGE_DEEPSEA:
+		return RESTRAINT_STAGE_MARITIME;
+
+	case STAGE_INFILTRATION:
+	case STAGE_RESCUE:
+	case STAGE_ESCAPE:
+	case STAGE_MAIANSOS:
+	case STAGE_MP_AREA52:
+		return RESTRAINT_STAGE_AREA51;
+
+	case STAGE_AIRBASE:
+	case STAGE_AIRFORCEONE:
+		return RESTRAINT_STAGE_AVIATION;
+
+	case STAGE_VILLA:
+	case STAGE_MP_VILLA:
+	case STAGE_CHICAGO:
+	case STAGE_CRASHSITE:
+	case STAGE_RETAKING:
+	case STAGE_DEFENSE:
+	case STAGE_CITRAINING:
+	case STAGE_DUEL:
+	case STAGE_MP_CARPARK:
+	case STAGE_MP_WAREHOUSE:
+		return RESTRAINT_STAGE_GROUNDED;
+	}
+
+	return RESTRAINT_STAGE_NONE;
 }
 
-static void restrainDataDyneRoomColours(Col *colours, u32 count)
+static void blendColourTowardLuma(s32 *r, s32 *g, s32 *b, s32 blend)
 {
+	const s32 luma = (54 * *r + 183 * *g + 19 * *b) >> 8;
+
+	*r = (*r * (256 - blend) + luma * blend) >> 8;
+	*g = (*g * (256 - blend) + luma * blend) >> 8;
+	*b = (*b * (256 - blend) + luma * blend) >> 8;
+}
+
+static void restrainRoomColours(Col *colours, u32 count)
+{
+	const enum restraintstageprofile profile = getRestraintStageProfile();
+
+	if (profile == RESTRAINT_STAGE_NONE) {
+		return;
+	}
+
 	for (u32 i = 0; i < count; i++) {
 		s32 r = colours[i].r;
 		s32 g = colours[i].g;
 		s32 b = colours[i].b;
 		s32 max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+		s32 min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+		s32 chroma = max - min;
+		const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
 
-		// Treat broad purple material tint, but leave very bright accents alone.
-		if (max < 232 && r > g + 12 && b > g + 16 && r > 48 && b > 48) {
-			const s32 luma = (54 * r + 183 * g + 19 * b) >> 8;
-
-			r = (3 * r + 2 * luma) / 5;
-			g = (3 * g + 2 * luma) / 5;
-			b = (3 * b + 2 * luma) / 5;
-
-			colours[i].r = (u8)(r * 92 / 100);
-			colours[i].g = (u8)(g * 92 / 100);
-			colours[i].b = (u8)(b * 94 / 100);
+		// All grounded human environments get a small high-chroma material pass.
+		// Keep near-black shadow and very bright displays/lights out of it.
+		if (max < 228 && luma > 24 && chroma > 34) {
+			blendColourTowardLuma(&r, &g, &b, 24);
 		}
+
+		if (profile == RESTRAINT_STAGE_DATADYNE) {
+			// Large violet surfaces -> darker plum/charcoal.
+			if (max < 232 && r > g + 12 && b > g + 16 && r > 48 && b > 48) {
+				blendColourTowardLuma(&r, &g, &b, 78);
+				r = r * 92 / 100;
+				g = g * 92 / 100;
+				b = b * 94 / 100;
+			}
+		} else if (profile == RESTRAINT_STAGE_G5) {
+			// Cyan/blue architecture -> steel/slate rather than luminous blue plastic.
+			if (max < 232 && b > r + 18 && g > r + 8) {
+				blendColourTowardLuma(&r, &g, &b, 64);
+				r = r * 92 / 100;
+				g = g * 92 / 100;
+				b = b * 88 / 100;
+			}
+		} else if (profile == RESTRAINT_STAGE_MARITIME) {
+			// Pelagic/Deep Sea keep emergency/naval colour, but broad reds and cyans
+			// should read as painted metal/fabric rather than arcade colour blocks.
+			if (max < 232 && r > g + 28 && r > b + 24) {
+				blendColourTowardLuma(&r, &g, &b, 52);
+				r = r * 90 / 100;
+			} else if (max < 232 && b > r + 16 && g > r + 10) {
+				blendColourTowardLuma(&r, &g, &b, 48);
+				b = b * 92 / 100;
+			}
+		} else if (profile == RESTRAINT_STAGE_AREA51) {
+			// Military/science interiors: suppress saturated cyan and green while
+			// retaining warning lamps and displays through the brightness exclusion.
+			if (max < 232 && b > r + 18 && g > r + 6) {
+				blendColourTowardLuma(&r, &g, &b, 48);
+				b = b * 92 / 100;
+			} else if (max < 232 && g > r + 18 && g > b + 8) {
+				r = (15 * r + g) / 16;
+				g = g * 91 / 100;
+				b = b * 94 / 100;
+			}
+		} else if (profile == RESTRAINT_STAGE_AVIATION) {
+			// Air Base / Air Force One: turn broad royal-blue and red treatment into
+			// navy, steel and burgundy without erasing formal colour coding.
+			if (max < 232 && b > r + 20 && b > g + 8) {
+				blendColourTowardLuma(&r, &g, &b, 44);
+				b = b * 90 / 100;
+			} else if (max < 232 && r > g + 26 && r > b + 22) {
+				blendColourTowardLuma(&r, &g, &b, 40);
+				r = r * 91 / 100;
+			}
+		}
+
+		colours[i].r = (u8)r;
+		colours[i].g = (u8)g;
+		colours[i].b = (u8)b;
 	}
 }
 
@@ -398,12 +506,12 @@ static u32 convertRoomGfxData(u8 *dst, u8 *src, u32 infsize, u32 src_ofs)
 
 		memcpy(dst + curpos_dst, src + curpos_src, col_len);
 
-		if (isRestrainedDataDyneStage()) {
+		if (getRestraintStageProfile() != RESTRAINT_STAGE_NONE) {
 			const u32 availableColours = col_len / sizeof(Col);
 			const u32 colourCount = dst_header->numcolours < availableColours
 				? dst_header->numcolours
 				: availableColours;
-			restrainDataDyneRoomColours((Col *)(dst + curpos_dst), colourCount);
+			restrainRoomColours((Col *)(dst + curpos_dst), colourCount);
 		}
 
 		curpos_src += col_len;
