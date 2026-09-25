@@ -24,5 +24,6 @@ void visualRestraintRegisterCiTexture(const u8 *addr, u32 size, s32 fileNum, enu
 void visualRestraintResetCharacterCiRegistry(void);
 s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr, u32 size);
 enum visualrestraintstageprofile visualRestraintFindEnvironmentCiTextureProfile(const u8 *addr, u32 size);
+void visualRestraintApplyTextureMicrocontrast(u8 *rgba, u32 pixelCount, s32 maxDelta);
 
 #endif

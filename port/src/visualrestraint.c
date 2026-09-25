@@ -518,3 +518,66 @@ enum visualrestraintstageprofile visualRestraintFindEnvironmentCiTextureProfile(
 
 	return VISUAL_RESTRAINT_STAGE_NONE;
 }
+
+void visualRestraintApplyTextureMicrocontrast(u8 *rgba, u32 pixelCount, s32 maxDelta)
+{
+	if (!rgba || pixelCount == 0 || maxDelta <= 0) {
+		return;
+	}
+
+	u64 lumaTotal = 0;
+	u32 opaqueCount = 0;
+
+	for (u32 i = 0; i < pixelCount; i++) {
+		u8 *pixel = rgba + i * 4;
+
+		if (pixel[3] == 0) {
+			continue;
+		}
+
+		lumaTotal += (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+		opaqueCount++;
+	}
+
+	if (opaqueCount == 0) {
+		return;
+	}
+
+	const s32 averageLuma = (s32)(lumaTotal / opaqueCount);
+
+	for (u32 i = 0; i < pixelCount; i++) {
+		u8 *pixel = rgba + i * 4;
+
+		if (pixel[3] == 0) {
+			continue;
+		}
+
+		const s32 luma = (54 * pixel[0] + 183 * pixel[1] + 19 * pixel[2]) >> 8;
+
+		// Preserve deep shadow and near-white highlights; those often carry
+		// silhouette/emissive information rather than material detail.
+		if (luma < 28 || luma > 228) {
+			continue;
+		}
+
+		s32 delta = (luma - averageLuma) / 18;
+
+		if (delta < -maxDelta) {
+			delta = -maxDelta;
+		} else if (delta > maxDelta) {
+			delta = maxDelta;
+		}
+
+		for (s32 channel = 0; channel < 3; channel++) {
+			s32 value = pixel[channel] + delta;
+
+			if (value < 0) {
+				value = 0;
+			} else if (value > 255) {
+				value = 255;
+			}
+
+			pixel[channel] = (u8)value;
+		}
+	}
+}

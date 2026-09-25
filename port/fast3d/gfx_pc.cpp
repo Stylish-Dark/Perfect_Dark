@@ -847,6 +847,12 @@ static void import_texture_ci4(int tile, const LoadedTexture& loaded_texture, bo
         }
     }
 
+    if (restraint_file >= 0) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes * 2, 4);
+    } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes * 2, 5);
+    }
+
     uint32_t result_line_size = rdp.texture_tile[tile].line_size_bytes;
     if (metadata->h_byte_scale != 1) {
         result_line_size *= metadata->h_byte_scale;
@@ -885,6 +891,12 @@ static void import_texture_ci8(int tile, const LoadedTexture& loaded_texture, bo
                 visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
             }
         }
+    }
+
+    if (restraint_file >= 0) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes, 4);
+    } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+        visualRestraintApplyTextureMicrocontrast(tex_upload_buffer, size_bytes, 5);
     }
 
     uint32_t result_line_size = rdp.texture_tile[tile].line_size_bytes;
