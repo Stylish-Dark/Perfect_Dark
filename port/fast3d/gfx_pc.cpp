@@ -862,7 +862,7 @@ static void import_texture_ci8(int tile, const LoadedTexture& loaded_texture, bo
     const uint32_t line_size_bytes = loaded_texture.line_size_bytes;
 
     const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
-        ? visualRestraintFindCharacterCiTextureFile(addr)
+        ? visualRestraintFindCharacterCiTextureFile(addr, loaded_texture.full_size_bytes)
         : -1;
 
     for (uint32_t i = 0, j = 0; i < size_bytes; j += full_image_line_size_bytes - line_size_bytes) {
