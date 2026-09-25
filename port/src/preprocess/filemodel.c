@@ -1099,7 +1099,9 @@ static bool preprocessIsEnvironmentPropFile(s32 fileNum)
 		"locker", "gate", "barrier", "mainframe", "pillar", "wall",
 		"panel", "console", "shutter", "airlock", "window", "trolley",
 		"wastebin", "fan", "sofa", "grate", "fence", "barrel", "bed",
-		"bridge"
+		"bridge", "generator", "lab_container",
+		"hovcab", "hovcar", "hovcop", "hovercopter", "hovmoto", "hovtruck",
+		"policecar", "taxicab", "baggagecarrier", "submarine"
 	};
 
 	for (s32 i = 0; i < ARRAYCOUNT(tokens); i++) {
