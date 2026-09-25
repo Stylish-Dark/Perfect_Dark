@@ -118,3 +118,50 @@ void visualRestraintApplyEnvironmentPixel(enum visualrestraintstageprofile profi
 	*gptr = (u8)g;
 	*bptr = (u8)b;
 }
+
+void visualRestraintApplyAtmospherePixel(s32 stage, u8 *rptr, u8 *gptr, u8 *bptr)
+{
+	if (stage >= 900) {
+		stage -= 900;
+	}
+
+	const enum visualrestraintstageprofile profile = visualRestraintGetStageProfile(stage);
+	s32 r = *rptr;
+	s32 g = *gptr;
+	s32 b = *bptr;
+	s32 max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+	s32 min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+	s32 chroma = max - min;
+
+	if (profile == VISUAL_RESTRAINT_STAGE_NONE || chroma < 28) {
+		return;
+	}
+
+	// Atmosphere may carry more colour than physical materials.
+	blendTowardLuma(&r, &g, &b, 22);
+
+	if (stage == STAGE_CRASHSITE) {
+		// Preserve the hot crash-site mood, but make the red/yellow atmosphere dusty.
+		blendTowardLuma(&r, &g, &b, max > 220 ? 76 : 46);
+		r = r * 96 / 100;
+		g = g * 96 / 100;
+		b = b * 94 / 100;
+	} else if (stage == STAGE_VILLA || stage == STAGE_MP_VILLA) {
+		// Keep Mediterranean blue/orange, remove the postcard-like cyan punch.
+		blendTowardLuma(&r, &g, &b, 42);
+	} else if (stage == STAGE_DEFENSE || stage == STAGE_CITRAINING
+			|| stage == STAGE_DUEL || stage == STAGE_RETAKING) {
+		// Carrington Institute daylight becomes paler and less cyan.
+		blendTowardLuma(&r, &g, &b, 38);
+	} else if (profile == VISUAL_RESTRAINT_STAGE_G5
+			|| profile == VISUAL_RESTRAINT_STAGE_AREA51
+			|| profile == VISUAL_RESTRAINT_STAGE_AVIATION
+			|| profile == VISUAL_RESTRAINT_STAGE_MARITIME
+			|| profile == VISUAL_RESTRAINT_STAGE_DATADYNE) {
+		blendTowardLuma(&r, &g, &b, 18);
+	}
+
+	*rptr = (u8)r;
+	*gptr = (u8)g;
+	*bptr = (u8)b;
+}
