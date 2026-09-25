@@ -1,12 +1,13 @@
 # NEXT
 
-1. Validate the latest `visual-restraint` branch on Windows and Linux CI after the vertex-colour/dataDyne pass.
+1. Validate the latest `visual-restraint` branch on Windows and Linux CI.
 2. Test in-game with an NTSC-final ROM, prioritising:
    - G5 Building guards;
    - Pelagic II guards;
    - Deep Sea guards;
-   - dataDyne Defection / Investigation / Extraction guards.
-3. Compare `Visual Restraint = 0`, `0.3`, and `0.6` and choose the baseline only after screenshots.
-4. Inspect whether any remaining bright uniform regions are CI-paletted; do not alter CI indices blindly.
-5. Trace background room colour arrays for the dataDyne stages and implement a selective architectural purple treatment.
-6. Preserve bright colour for screens, alarms, effects and small technological accents rather than globally flattening them.
+   - dataDyne Defection / Investigation / Extraction environments and guards.
+3. Capture matched screenshots at `Visual Restraint = 0`, `0.3`, and `0.6`.
+4. Tune the current G5, Pelagic and dataDyne thresholds from those screenshots before adding broader colour transforms.
+5. Inspect whether any remaining bright uniform regions are CI-paletted; do not alter CI indices blindly.
+6. Verify that screens, alarms, illuminated controls and effects retain useful saturated colour.
+7. After the palette is validated, begin material-detail work: dirt, wear, mottling and breakup on the worst flat surfaces.
