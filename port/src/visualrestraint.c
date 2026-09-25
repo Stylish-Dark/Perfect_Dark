@@ -306,6 +306,38 @@ static s32 visualRestraintIsCivilianSupportCharacterFile(s32 fileNum)
 	return false;
 }
 
+static s32 visualRestraintIsPrincipalHumanCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_CCARRINGTON:
+	case FILE_CCASSANDRA:
+	case FILE_CDARK_COMBAT:
+	case FILE_CDARK_FROCK:
+	case FILE_CDARK_TRENCH:
+	case FILE_CDARK_RIPPED:
+	case FILE_CDARK_AF1:
+	case FILE_CDARKWET:
+	case FILE_CDARKAQUALUNG:
+	case FILE_CDARKSNOW:
+	case FILE_CDARKLAB:
+	case FILE_CDARK_LEATHER:
+	case FILE_CDARK_NEGOTIATOR:
+	case FILE_CMRBLONDE:
+	case FILE_CTRENT:
+	case FILE_CPRESIDENT:
+	case FILE_CPRESIDENT_CLONE:
+	case FILE_CCARREVENINGSUIT:
+	case FILE_CJONATHON:
+	case FILE_CDJBOND:
+	case FILE_CCONNERY:
+	case FILE_CMOORE:
+	case FILE_CDALTON:
+		return true;
+	}
+
+	return false;
+}
+
 s32 visualRestraintIsCharacterFile(s32 fileNum)
 {
 	return fileNum == FILE_CG5_GUARD
@@ -316,7 +348,8 @@ s32 visualRestraintIsCharacterFile(s32 fileNum)
 		|| visualRestraintIsFlightCrewCharacterFile(fileNum)
 		|| visualRestraintIsTechnicalCharacterFile(fileNum)
 		|| visualRestraintIsUrbanSecurityCharacterFile(fileNum)
-		|| visualRestraintIsCivilianSupportCharacterFile(fileNum);
+		|| visualRestraintIsCivilianSupportCharacterFile(fileNum)
+		|| visualRestraintIsPrincipalHumanCharacterFile(fileNum);
 }
 
 void visualRestraintApplyCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
