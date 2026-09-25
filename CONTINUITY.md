@@ -4,112 +4,94 @@
 
 - Branch: `visual-restraint`
 - Draft PR: #1 into `port`
-- Purpose: make Perfect Dark's presentation more materially plausible and restrained, taking cues from GoldenEye's muted naturalism without erasing Perfect Dark's identity.
+- Current code head before this checkpoint: `1dc65feb26751e86caeab77ecb61835c0cbb3410`
+- Purpose: make Perfect Dark's presentation more materially plausible and visually restrained, using GoldenEye's naturalistic discipline as a reference without erasing Perfect Dark's identity.
 
-## Visual rule
+## Core visual rule
 
 Colour should read as a property of a physical material, not as a videogame faction label.
 
-Keep strong colour where it makes physical/semantic sense: screens, alarms, illuminated controls, effects and genuinely unusual technology. Large cloth, armour and architectural surfaces should be darker, dirtier and less poster-like.
+Strong colour remains appropriate for displays, alarms, illuminated controls, effects and genuinely alien technology. Large human-made cloth, armour, walls, fixtures and props should carry more restrained, physically plausible colour.
 
-## Implemented
+## Implemented coverage
 
-### 1. Global renderer restraint
+### Global renderer
 
-A configurable OpenGL shader pass:
-- preserves perceptual luminance;
-- selectively compresses stronger chroma rather than applying flat desaturation;
-- adds a small contrast lift to retain contour;
-- defaults to `0.6`;
-- is exposed as **Extended Video Options -> Visual Restraint**.
+- Selective high-chroma restraint rather than flat desaturation.
+- Perceptual luminance is preserved before hue is compressed.
+- Small contrast lift preserves contour/value structure.
+- Bright-emissive preservation is built into the shader.
+- `Extended Video Options -> Visual Restraint` controls the global shader grade.
+- Default restraint is `0.6`.
+- Slider updates are live and do not flush texture/shader caches.
+- Three-point filtering is the restrained fork's default texture filtering mode.
 
-Setting the slider to `0` disables the global shader grade only. Model/stage-specific treatments remain part of this fork.
+### Stage material profiles
 
-Slider changes now update the active shader uniform directly; they no longer clear the texture/shader cache.
+Shared stage profiles now distinguish:
+- dataDyne;
+- G5;
+- maritime / Pelagic;
+- Area 51;
+- aviation / Air Base / Air Force One;
+- grounded human environments.
 
-### 2. G5 guard treatment
+Skedar/Cetan/alien visual language is intentionally not forced into the human material grammar.
 
-Target body files:
-- `FILE_CG5_GUARD`
-- `FILE_CG5_SWAT_GUARD`
+### Human character bodies
 
-Treatment:
-- bright cyan/sky-blue material colour is pulled toward darker steel/slate blue;
-- embedded RGBA16/RGBA32 textures are adjusted;
-- model vertex/material colour arrays are adjusted too;
-- heads, weapons and unrelated models are not touched.
+Targeted or restrained families include:
+- G5 guards and G5 SWAT;
+- Pelagic / Deep Sea guards;
+- dataDyne security, guards, shock troops, lab staff and sniper;
+- Area 51 guards, troopers and airmen;
+- NSA / presidential security;
+- Alaskan guards;
+- CI soldiers;
+- Air Force One flight crew;
+- technical / lab / biotech staff;
+- Chicago urban-security/robber bodies;
+- office workers, secretary, stripes and negotiator support bodies.
 
-### 3. Pelagic / Deep Sea guard treatment
+Direct-colour RGBA16/RGBA32 embedded textures and model colour arrays are both covered for these targeted models.
 
-Target body:
-- `FILE_CPELAGIC_GUARD`
+### Human environments
 
-Confirmed from stage setup code: both Pelagic II and Deep Sea use this body.
+The restraint system now reaches beyond vertex colour:
+- room colour arrays;
+- stage-scoped paletted room textures;
+- atmosphere colours (sky/cloud/water);
+- architectural props;
+- doors, lifts, crates, tables, chairs, desks, cabinets, lockers, gates, barriers, mainframes, pillars and walls;
+- human fixture panels and consoles;
+- grounded human multiplayer arenas.
 
-Treatment:
-- bright clean red -> darker worn maritime red/burgundy;
-- stark near-white -> warmer off-white;
-- embedded RGBA16/RGBA32 textures and model colour arrays are both covered.
+Prop classification is cached per file to avoid repeated filename scanning.
 
-### 4. dataDyne character treatment
+### Colour preservation
 
-Target bodies:
-- dataDyne security guard
-- standard dataDyne guard
-- shock guard / shock infantry
-- dataDyne lab tech
-- dataDyne sniper
+- Bright displays/lights are deliberately protected by material thresholds.
+- The global shader has an emissive-preservation term.
+- Alien fixtures are excluded from the human architectural-prop treatment.
 
-Purple-dominant material colours are selectively pulled toward darker plum/charcoal. Neutral regions are left alone.
+## Validation
 
-### 5. dataDyne architectural treatment
+- The broad restraint system has repeatedly compiled successfully on Linux.
+- An interrupted-turn Windows failure exposed a real cross-platform type bug: cloud/water environment colours are `f32`, while the original atmosphere helper accepted `u8*`.
+- This is fixed by a dedicated float atmosphere wrapper that converts/clamps through the same 8-bit colour treatment and writes the result back as `f32`.
+- The current head must be green on both Windows x64 and Linux x64 before further broad art changes are stacked on it.
 
-The PC background preprocessor now knows the active stage.
+## Deliberate remaining limits
 
-For:
-- Defection
-- Investigation
-- Extraction
-- Mr Blonde's Revenge
+- Paletted **character/model** textures are not yet treated; only direct-colour embedded character textures are. Do not modify CI indices blindly.
+- Heads, weapons and pickups are not broadly colour-rewritten.
+- Alien/Skedar/Cetan material colour remains intentionally freer and more saturated.
+- Current thresholds are engineering/art-direction first passes; screenshot review will eventually tune exact values.
 
-room geometry colour arrays selectively compress purple-dominant non-emissive material tints. Very bright values are deliberately excluded to preserve screens/lights/tech accents.
+## Next technical unit
 
-### 6. CI / test packaging
-
-`.github/workflows/visual-restraint-ci.yml` builds:
-- Windows x86_64 NTSC-final
-- Linux x86_64 NTSC-final
-
-The Windows job uploads a ready-to-test ZIP containing the executable and required DLLs.
-
-Concurrency is enabled so newer branch pushes cancel superseded visual-restraint CI runs.
-
-## Validation state
-
-Known successful Windows + Linux CI:
-- base renderer/texture implementation;
-- G5/Pelagic vertex-colour pass;
-- dataDyne character-body pass.
-
-The final architectural/background + live-uniform head must still receive its own green CI run before being treated as build-validated.
-
-## Deliberate limits
-
-- Paletted CI character textures are not modified yet. Do not blindly recolour palette indices.
-- Do not broaden hue transforms until in-game screenshots show what remains wrong.
-- Do not globally flatten bright displays/effects merely to reduce saturation.
-- The current numbers are first-pass thresholds, not final art-direction values.
-
-## Immediate next step
-
-Build and run the current branch with an NTSC-final ROM, then capture matched screenshots from:
-1. G5 Building;
-2. Pelagic II;
-3. Deep Sea;
-4. dataDyne Defection;
-5. dataDyne Investigation;
-6. dataDyne Extraction.
-
-For each useful scene compare `Visual Restraint = 0`, `0.3`, and `0.6`.
-
-Use those screenshots to tune thresholds before adding any broader treatment.
+1. Keep Windows + Linux CI green.
+2. Trace paletted character/model texture palettes safely and add palette-aware treatment for already-targeted human bodies.
+3. Audit remaining principal human body models for conspicuous videogame colour, adding only restrained general treatment where justified.
+4. Then move from palette correction into material breakup: wear, dirt, mottling and variation on the worst flat human-made surfaces.
+5. Preserve the distinction between restrained human materials and legitimately vivid alien/technological colour.
