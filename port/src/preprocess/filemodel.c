@@ -1069,6 +1069,7 @@ static void preprocessTextureRGBA32Embedded(u32* dest, u32 size_bytes)
 static bool preprocessIsDataDyneCharacterFile(s32 fileNum)
 {
 	switch (fileNum) {
+	case FILE_CDDSHOCK:
 	case FILE_CDD_SECGUARD:
 	case FILE_CDD_LABTECH:
 	case FILE_CDD_GUARD:
@@ -1081,12 +1082,73 @@ static bool preprocessIsDataDyneCharacterFile(s32 fileNum)
 	return false;
 }
 
+static bool preprocessIsMilitarySecurityCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_CA51GUARD:
+	case FILE_CAREA51GUARD:
+	case FILE_CA51TROOPER:
+	case FILE_CA51AIRMAN:
+	case FILE_CNSA_LACKEY:
+	case FILE_CPRES_SECURITY:
+	case FILE_CALASKAN_GUARD:
+	case FILE_CCISOLDIER:
+		return true;
+	}
+
+	return false;
+}
+
+static bool preprocessIsFlightCrewCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_CSTEWARD:
+	case FILE_CSTEWARDESS:
+	case FILE_CSTEWARDESS_COAT:
+	case FILE_CPILOTAF1:
+		return true;
+	}
+
+	return false;
+}
+
+static bool preprocessIsTechnicalCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_COVERALL:
+	case FILE_CLABTECH:
+	case FILE_CBIOTECH:
+	case FILE_CFEMLABTECH:
+	case FILE_CCILABTECH:
+	case FILE_CCIFEMTECH:
+		return true;
+	}
+
+	return false;
+}
+
+static bool preprocessIsUrbanSecurityCharacterFile(s32 fileNum)
+{
+	switch (fileNum) {
+	case FILE_CCIAGUY:
+	case FILE_CFBIGUY:
+	case FILE_CCHICROB:
+		return true;
+	}
+
+	return false;
+}
+
 static bool preprocessIsRestrainedCharacterFile(s32 fileNum)
 {
 	return fileNum == FILE_CG5_GUARD
 		|| fileNum == FILE_CG5_SWAT_GUARD
 		|| fileNum == FILE_CPELAGIC_GUARD
-		|| preprocessIsDataDyneCharacterFile(fileNum);
+		|| preprocessIsDataDyneCharacterFile(fileNum)
+		|| preprocessIsMilitarySecurityCharacterFile(fileNum)
+		|| preprocessIsFlightCrewCharacterFile(fileNum)
+		|| preprocessIsTechnicalCharacterFile(fileNum)
+		|| preprocessIsUrbanSecurityCharacterFile(fileNum);
 }
 
 static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bptr)
@@ -1153,6 +1215,56 @@ static void preprocessRestrainedCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, 
 			g = g * 90 / 100;
 			b = b * 92 / 100;
 		}
+	} else if (preprocessIsMilitarySecurityCharacterFile(fileNum)) {
+		// Military/security uniforms should read as dyed cloth or painted armour,
+		// not clean faction colour. Cool tones become navy/steel, green becomes
+		// olive/drab. Neutral parts are largely unchanged.
+		if (b > r + 18 && b > g + 4) {
+			luma = (54 * r + 183 * g + 19 * b) >> 8;
+			r = (3 * r + luma) / 4;
+			g = (3 * g + luma) / 4;
+			b = (2 * b + luma) / 3;
+			r = r * 90 / 100;
+			g = g * 90 / 100;
+			b = b * 86 / 100;
+		} else if (g > r + 18 && g > b + 8) {
+			// Pull saturated green toward a dirtier olive rather than grey.
+			r = (9 * r + g) / 10;
+			g = g * 86 / 100;
+			b = b * 88 / 100;
+		}
+	} else if (preprocessIsFlightCrewCharacterFile(fileNum)) {
+		// Airline/AF1 clothing keeps its formal colour coding but avoids toy-like
+		// royal blue and bright red.
+		if (b > r + 20 && b > g + 8) {
+			r = r * 90 / 100;
+			g = g * 90 / 100;
+			b = b * 82 / 100;
+		} else if (r > g + 24 && r > b + 20) {
+			r = r * 84 / 100;
+			g = (19 * g + r) / 20;
+			b = (18 * b + 2 * r) / 20;
+		}
+	} else if (preprocessIsTechnicalCharacterFile(fileNum)) {
+		// Technical/lab clothing is mostly neutral; only suppress conspicuous
+		// teal/cyan and make near-white fabric a touch less synthetic.
+		if (g > r + 12 && b > r + 14) {
+			luma = (54 * r + 183 * g + 19 * b) >> 8;
+			r = (3 * r + luma) / 4;
+			g = (3 * g + luma) / 4;
+			b = (3 * b + luma) / 4;
+		}
+
+		max = r > g ? (r > b ? r : b) : (g > b ? g : b);
+		min = r < g ? (r < b ? r : b) : (g < b ? g : b);
+		if (min > 205 && max - min < 28) {
+			r = r * 96 / 100;
+			g = g * 95 / 100;
+			b = b * 92 / 100;
+		}
+	} else if (preprocessIsUrbanSecurityCharacterFile(fileNum)) {
+		// These models are already comparatively grounded. Give them only the
+		// general chroma compression above; no faction-hue rewrite.
 	}
 
 	*rptr = (u8)r;
