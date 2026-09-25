@@ -13,6 +13,8 @@
 #ifndef PLATFORM_N64
 #include "mod.h"
 #include "platform.h"
+#include "preprocess.h"
+#include "visualrestraint.h"
 #endif
 
 struct texture *g_Textures;
@@ -120,6 +122,40 @@ void func0f16e810(u32 arg0)
 	// empty
 }
 
+#ifndef PLATFORM_N64
+static void texApplyEnvironmentPaletteRestraint(u16 *palette, s32 numcolours, s32 format)
+{
+	if (!preprocessGetEnvironmentTextureLoad()) {
+		return;
+	}
+
+	if (format != TEXFORMAT_RGBA16_CI8 && format != TEXFORMAT_RGBA16_CI4) {
+		return;
+	}
+
+	const enum visualrestraintstageprofile profile =
+		visualRestraintGetStageProfile(preprocessGetBgStage());
+
+	if (profile == VISUAL_RESTRAINT_STAGE_NONE) {
+		return;
+	}
+
+	for (s32 i = 0; i < numcolours; i++) {
+		const u16 original = palette[i];
+		u8 r = ((original >> 11) & 0x1f) * 255 / 31;
+		u8 g = ((original >> 6) & 0x1f) * 255 / 31;
+		u8 b = ((original >> 1) & 0x1f) * 255 / 31;
+
+		visualRestraintApplyEnvironmentPixel(profile, &r, &g, &b);
+
+		palette[i] = ((r * 31 / 255) << 11)
+			| ((g * 31 / 255) << 6)
+			| ((b * 31 / 255) << 1)
+			| (original & 1);
+	}
+}
+#endif
+
 /**
  * Inflate images (levels of detail) from a zlib-compressed texture.
  *
@@ -194,6 +230,10 @@ s32 texInflateZlib(u8 *src, u8 *dst, bool hasloddata, s32 numlods, struct texpoo
 	for (i = 0; i < numcolours; i++) {
 		palette[i] = texReadBits(16);
 	}
+
+#ifndef PLATFORM_N64
+	texApplyEnvironmentPaletteRestraint(palette, numcolours, format);
+#endif
 
 	foundthething = false;
 
