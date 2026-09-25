@@ -1207,11 +1207,6 @@ static u32 preprocessEmbeddedCiTextureSize(u8 width, u8 height, s32 format)
 static void preprocessRegisterCharacterCiTextures(u8 *base)
 {
 	const s32 fileNum = preprocessGetFileNum();
-
-	if (!visualRestraintIsCharacterFile(fileNum)) {
-		return;
-	}
-
 	struct modeldef *mdl = (struct modeldef *)base;
 
 	if (!mdl->texconfigs) {

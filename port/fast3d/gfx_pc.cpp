@@ -827,7 +827,7 @@ static void import_texture_ci4(int tile, const LoadedTexture& loaded_texture, bo
     const uint32_t pal_idx = rdp.texture_tile[tile].palette; // 0-15
     const uint16_t* palette = (const uint16_t *)(rdp.palette + pal_idx * 16); // 16 pixel entries, 16 bits each
     const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
-        ? visualRestraintFindCharacterCiTextureFile(addr)
+        ? visualRestraintFindCharacterCiTextureFile(addr, loaded_texture.full_size_bytes)
         : -1;
     SUPPORT_CHECK(full_image_line_size_bytes == line_size_bytes);
 

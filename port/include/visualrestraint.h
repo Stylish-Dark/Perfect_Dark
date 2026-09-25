@@ -21,6 +21,6 @@ void visualRestraintApplyAtmosphereFloat(s32 stage, f32 *r, f32 *g, f32 *b);
 bool visualRestraintIsCharacterFile(s32 fileNum);
 void visualRestraintApplyCharacterPixel(s32 fileNum, u8 *r, u8 *g, u8 *b);
 void visualRestraintRegisterCharacterCiTexture(const u8 *addr, u32 size, s32 fileNum);
-s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr);
+s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr, u32 size);
 
 #endif

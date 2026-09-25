@@ -428,19 +428,27 @@ void visualRestraintApplyCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bpt
 
 void visualRestraintRegisterCharacterCiTexture(const u8 *addr, u32 size, s32 fileNum)
 {
-	if (!addr || !size || !visualRestraintIsCharacterFile(fileNum)) {
+	if (!addr || !size) {
 		return;
 	}
 
+	const bool target = visualRestraintIsCharacterFile(fileNum);
 	const u32 fingerprint = visualRestraintTextureFingerprint(addr, size);
 
 	for (s32 i = 0; i < g_VisualRestraintCiTextureCount; i++) {
 		if (g_VisualRestraintCiTextures[i].addr == addr) {
 			g_VisualRestraintCiTextures[i].size = size;
 			g_VisualRestraintCiTextures[i].fingerprint = fingerprint;
-			g_VisualRestraintCiTextures[i].fileNum = fileNum;
+			g_VisualRestraintCiTextures[i].fileNum = target ? fileNum : -1;
 			return;
 		}
+	}
+
+	// Non-target model loads only need to invalidate an address that was
+	// previously registered by a targeted body. Do not fill the registry with
+	// unrelated model textures.
+	if (!target) {
+		return;
 	}
 
 	s32 index;
@@ -459,9 +467,9 @@ void visualRestraintRegisterCharacterCiTexture(const u8 *addr, u32 size, s32 fil
 	g_VisualRestraintCiTextures[index].fileNum = fileNum;
 }
 
-s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr)
+s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr, u32 size)
 {
-	if (!addr) {
+	if (!addr || !size) {
 		return -1;
 	}
 
@@ -469,7 +477,9 @@ s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr)
 		struct visualrestraintcitexture *entry = &g_VisualRestraintCiTextures[i];
 
 		if (entry->addr == addr
-				&& entry->fingerprint == visualRestraintTextureFingerprint(addr, entry->size)) {
+				&& entry->size == size
+				&& entry->fileNum >= 0
+				&& entry->fingerprint == visualRestraintTextureFingerprint(addr, size)) {
 			return entry->fileNum;
 		}
 	}
