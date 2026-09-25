@@ -19,6 +19,7 @@
 #include "game/gfxmemory.h"
 #include "game/artifact.h"
 #include "game/player.h"
+#include "preprocess.h"
 #endif
 
 #define SKYABS(val) (val >= 0.0f ? (val) : -(val))
@@ -831,7 +832,13 @@ Gfx *skyRender(Gfx *gdl)
 		} else {
 			gDPPipeSync(gdl++);
 
+#ifndef PLATFORM_N64
+			preprocessSetEnvironmentTextureLoad(true);
+#endif
 			texSelect(&gdl, &g_TexSkyWaterConfigs[env->water_type], 1, 0, 2, 1, NULL);
+#ifndef PLATFORM_N64
+			preprocessSetEnvironmentTextureLoad(false);
+#endif
 
 			gDPSetRenderMode(gdl++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
 
@@ -1273,7 +1280,13 @@ Gfx *skyRender(Gfx *gdl)
 
 	gDPPipeSync(gdl++);
 
+#ifndef PLATFORM_N64
+	preprocessSetEnvironmentTextureLoad(true);
+#endif
 	texSelect(&gdl, &g_TexSkyWaterConfigs[env->clouds_type], 1, 0, 2, 1, NULL);
+#ifndef PLATFORM_N64
+	preprocessSetEnvironmentTextureLoad(false);
+#endif
 
 	gDPSetEnvColor(gdl++, env->sky_r, env->sky_g, env->sky_b, 0xff);
 	gDPSetCombineLERP(gdl++,
