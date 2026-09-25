@@ -99,6 +99,7 @@
 #ifndef PLATFORM_N64
 #include "video.h"
 #include "preprocess.h"
+#include "visualrestraint.h"
 #endif
 
 struct sndstate *g_MiscSfxAudioHandles[3];
@@ -243,6 +244,7 @@ void lvReset(s32 stagenum)
 	// Set this even for title/credits/menu stages, which skip bgReset().
 	preprocessSetBgStage(stagenum);
 	preprocessSetEnvironmentTextureLoad(false);
+	visualRestraintResetCharacterCiRegistry();
 #endif
 
 	lvFadeReset();

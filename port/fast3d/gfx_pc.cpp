@@ -571,7 +571,7 @@ void gfx_texture_cache_delete(const uint8_t* orig_addr) {
     }
 
     while (gfx_texture_cache.map.bucket_count() > 0) {
-        TextureCacheKey key = { orig_addr, { 0 }, 0, 0 }; // bucket index only depends on the address
+        TextureCacheKey key = { orig_addr, { 0 }, 0, 0, 0, -1 }; // bucket index only depends on the address
         size_t bucket = gfx_texture_cache.map.bucket(key);
         bool again = false;
         for (auto it = gfx_texture_cache.map.begin(bucket); it != gfx_texture_cache.map.end(bucket); ++it) {
@@ -914,11 +914,16 @@ static void import_texture(int i, int tile, bool importReplacement) {
     const uint8_t* orig_addr = loaded_texture.addr;
     SUPPORT_CHECK(orig_addr);
 
+    const s32 visual_restraint_file = fmt == G_IM_FMT_CI && rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindCharacterCiTextureFile(orig_addr, loaded_texture.full_size_bytes)
+        : -1;
+
     TextureCacheKey key;
     if (fmt == G_IM_FMT_CI) {
-        key = { orig_addr, { rdp.palette_addrs[0], rdp.palette_addrs[1] }, fmt, siz, palette_index };
+        key = { orig_addr, { rdp.palette_addrs[0], rdp.palette_addrs[1] }, fmt, siz, palette_index,
+            visual_restraint_file };
     } else {
-        key = { orig_addr, {}, fmt, siz, palette_index };
+        key = { orig_addr, {}, fmt, siz, palette_index, -1 };
     }
 
     if (gfx_texture_cache_lookup(i, key)) {
