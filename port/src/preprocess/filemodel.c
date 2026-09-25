@@ -1402,7 +1402,7 @@ static void preprocessRegisterCiTextures(u8 *base)
 		}
 
 		u8 *texdata = PD_PTR_BASEOFS(texconfigs[i].textureptr, base, ofs);
-		visualRestraintRegisterCiTexture(texdata, size, fileNum, profile);
+		visualRestraintRegisterTextureContext(texdata, size, fileNum, profile);
 
 		if (targeted) {
 			registered++;

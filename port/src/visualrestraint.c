@@ -427,13 +427,13 @@ void visualRestraintApplyCharacterPixel(s32 fileNum, u8 *rptr, u8 *gptr, u8 *bpt
 	*bptr = (u8)b;
 }
 
-void visualRestraintResetCiRegistry(void)
+void visualRestraintResetTextureRegistry(void)
 {
 	g_VisualRestraintCiTextureCount = 0;
 	g_VisualRestraintCiTextureNext = 0;
 }
 
-void visualRestraintRegisterCiTexture(const u8 *addr, u32 size, s32 fileNum,
+void visualRestraintRegisterTextureContext(const u8 *addr, u32 size, s32 fileNum,
 		enum visualrestraintstageprofile profile)
 {
 	if (!addr || !size) {
@@ -498,7 +498,7 @@ s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr, u32 size)
 	return -1;
 }
 
-enum visualrestraintstageprofile visualRestraintFindEnvironmentCiTextureProfile(const u8 *addr, u32 size)
+enum visualrestraintstageprofile visualRestraintFindEnvironmentTextureProfile(const u8 *addr, u32 size)
 {
 	if (!addr || !size) {
 		return VISUAL_RESTRAINT_STAGE_NONE;

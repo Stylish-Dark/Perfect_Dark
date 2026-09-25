@@ -2418,6 +2418,26 @@ void texLoad(texnum_t *updateword, struct texpool *pool, bool unusedarg)
 			}
 		}
 
+#ifndef PLATFORM_N64
+		if (preprocessGetEnvironmentTextureLoad()
+				&& tex->gbiformat == G_IM_FMT_RGBA
+				&& tex->lutmodeindex == (G_TT_NONE >> G_MDSFT_TEXTLUT)) {
+			const enum visualrestraintstageprofile profile =
+				visualRestraintGetStageProfile(preprocessGetBgStage());
+			u32 texturebytes = 0;
+
+			if (tex->depth == G_IM_SIZ_16b) {
+				texturebytes = ((tex->width + 3) & ~3) * tex->height * 2;
+			} else if (tex->depth == G_IM_SIZ_32b) {
+				texturebytes = ((tex->width + 3) & ~3) * tex->height * 4;
+			}
+
+			if (texturebytes > 0 && profile != VISUAL_RESTRAINT_STAGE_NONE) {
+				visualRestraintRegisterTextureContext(tex->data, texturebytes, -1, profile);
+			}
+		}
+#endif
+
 		*updateword = osVirtualToPhysical(tex->data);
 	}
 }

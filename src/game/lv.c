@@ -244,7 +244,7 @@ void lvReset(s32 stagenum)
 	// Set this even for title/credits/menu stages, which skip bgReset().
 	preprocessSetBgStage(stagenum);
 	preprocessSetEnvironmentTextureLoad(false);
-	visualRestraintResetCiRegistry();
+	visualRestraintResetTextureRegistry();
 #endif
 
 	lvFadeReset();
