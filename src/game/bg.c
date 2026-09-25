@@ -1588,9 +1588,17 @@ void bgReset(s32 stagenum)
 	preprocessBgSection2((u8 *)section2, inflatedsize);
 #endif
 
+#ifndef PLATFORM_N64
+	preprocessSetEnvironmentTextureLoad(true);
+#endif
+
 	for (i = 0; i ^ inflatedsize; i++) {
 		texLoadFromTextureNum(section2[i] & 0xffff & 0xffff & 0xffff & 0xffff & 0xffff & 0xffff & 0xffff & 0xffff, NULL);
 	}
+
+#ifndef PLATFORM_N64
+	preprocessSetEnvironmentTextureLoad(false);
+#endif
 
 	if (1);
 
@@ -2964,6 +2972,10 @@ void bgLoadRoom(s32 roomnum)
 		// changed to point to the written GBI.
 		itergdl2 = gfxblocks[0];
 
+#ifndef PLATFORM_N64
+		preprocessSetEnvironmentTextureLoad(true);
+#endif
+
 		for (i = 0; i < numgdls; i++) {
 			s32 byteswritten;
 			len = gfxblocks[i + 1] - gfxblocks[i];
@@ -2976,6 +2988,10 @@ void bgLoadRoom(s32 roomnum)
 		}
 
 		gdlpointers[numgdls] = itergdl2;
+
+#ifndef PLATFORM_N64
+		preprocessSetEnvironmentTextureLoad(false);
+#endif
 
 		// Free the right side of the allocation
 		prev = g_Rooms[roomnum].gfxdatalen;
