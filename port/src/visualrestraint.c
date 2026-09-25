@@ -196,6 +196,7 @@ struct visualrestraintcitexture {
 	u32 size;
 	u32 fingerprint;
 	s32 fileNum;
+	enum visualrestraintstageprofile environmentProfile;
 };
 
 static struct visualrestraintcitexture g_VisualRestraintCiTextures[VISUAL_RESTRAINT_CI_REGISTRY_SIZE];
@@ -432,27 +433,30 @@ void visualRestraintResetCharacterCiRegistry(void)
 	g_VisualRestraintCiTextureNext = 0;
 }
 
-void visualRestraintRegisterCharacterCiTexture(const u8 *addr, u32 size, s32 fileNum)
+void visualRestraintRegisterCiTexture(const u8 *addr, u32 size, s32 fileNum,
+		enum visualrestraintstageprofile profile)
 {
 	if (!addr || !size) {
 		return;
 	}
 
-	const bool target = visualRestraintIsCharacterFile(fileNum);
+	const s32 characterFile = visualRestraintIsCharacterFile(fileNum) ? fileNum : -1;
+	const enum visualrestraintstageprofile environmentProfile =
+		characterFile >= 0 ? VISUAL_RESTRAINT_STAGE_NONE : profile;
+	const bool target = characterFile >= 0 || environmentProfile != VISUAL_RESTRAINT_STAGE_NONE;
 	const u32 fingerprint = visualRestraintTextureFingerprint(addr, size);
 
 	for (s32 i = 0; i < g_VisualRestraintCiTextureCount; i++) {
 		if (g_VisualRestraintCiTextures[i].addr == addr) {
 			g_VisualRestraintCiTextures[i].size = size;
 			g_VisualRestraintCiTextures[i].fingerprint = fingerprint;
-			g_VisualRestraintCiTextures[i].fileNum = target ? fileNum : -1;
+			g_VisualRestraintCiTextures[i].fileNum = target ? characterFile : -1;
+			g_VisualRestraintCiTextures[i].environmentProfile =
+				target ? environmentProfile : VISUAL_RESTRAINT_STAGE_NONE;
 			return;
 		}
 	}
 
-	// Non-target model loads only need to invalidate an address that was
-	// previously registered by a targeted body. Do not fill the registry with
-	// unrelated model textures.
 	if (!target) {
 		return;
 	}
@@ -470,7 +474,8 @@ void visualRestraintRegisterCharacterCiTexture(const u8 *addr, u32 size, s32 fil
 	g_VisualRestraintCiTextures[index].addr = addr;
 	g_VisualRestraintCiTextures[index].size = size;
 	g_VisualRestraintCiTextures[index].fingerprint = fingerprint;
-	g_VisualRestraintCiTextures[index].fileNum = fileNum;
+	g_VisualRestraintCiTextures[index].fileNum = characterFile;
+	g_VisualRestraintCiTextures[index].environmentProfile = environmentProfile;
 }
 
 s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr, u32 size)
@@ -491,4 +496,25 @@ s32 visualRestraintFindCharacterCiTextureFile(const u8 *addr, u32 size)
 	}
 
 	return -1;
+}
+
+enum visualrestraintstageprofile visualRestraintFindEnvironmentCiTextureProfile(const u8 *addr, u32 size)
+{
+	if (!addr || !size) {
+		return VISUAL_RESTRAINT_STAGE_NONE;
+	}
+
+	for (s32 i = 0; i < g_VisualRestraintCiTextureCount; i++) {
+		struct visualrestraintcitexture *entry = &g_VisualRestraintCiTextures[i];
+
+		if (entry->addr == addr
+				&& entry->size == size
+				&& entry->fileNum < 0
+				&& entry->environmentProfile != VISUAL_RESTRAINT_STAGE_NONE
+				&& entry->fingerprint == visualRestraintTextureFingerprint(addr, size)) {
+			return entry->environmentProfile;
+		}
+	}
+
+	return VISUAL_RESTRAINT_STAGE_NONE;
 }

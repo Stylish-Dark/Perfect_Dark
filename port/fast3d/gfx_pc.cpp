@@ -829,6 +829,9 @@ static void import_texture_ci4(int tile, const LoadedTexture& loaded_texture, bo
     const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
         ? visualRestraintFindCharacterCiTextureFile(addr, loaded_texture.full_size_bytes)
         : -1;
+    const enum visualrestraintstageprofile restraint_profile = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindEnvironmentCiTextureProfile(addr, loaded_texture.full_size_bytes)
+        : VISUAL_RESTRAINT_STAGE_NONE;
     SUPPORT_CHECK(full_image_line_size_bytes == line_size_bytes);
 
     for (uint32_t i = 0; i < size_bytes * 2; i++) {
@@ -839,6 +842,8 @@ static void import_texture_ci4(int tile, const LoadedTexture& loaded_texture, bo
 
         if (restraint_file >= 0) {
             visualRestraintApplyCharacterPixel(restraint_file, &rgba[0], &rgba[1], &rgba[2]);
+        } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+            visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
         }
     }
 
@@ -864,6 +869,9 @@ static void import_texture_ci8(int tile, const LoadedTexture& loaded_texture, bo
     const s32 restraint_file = rdp.palette_fmt == G_TT_RGBA16
         ? visualRestraintFindCharacterCiTextureFile(addr, loaded_texture.full_size_bytes)
         : -1;
+    const enum visualrestraintstageprofile restraint_profile = rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindEnvironmentCiTextureProfile(addr, loaded_texture.full_size_bytes)
+        : VISUAL_RESTRAINT_STAGE_NONE;
 
     for (uint32_t i = 0, j = 0; i < size_bytes; j += full_image_line_size_bytes - line_size_bytes) {
         for (uint32_t k = 0; k < line_size_bytes; i++, k++, j++) {
@@ -873,6 +881,8 @@ static void import_texture_ci8(int tile, const LoadedTexture& loaded_texture, bo
 
             if (restraint_file >= 0) {
                 visualRestraintApplyCharacterPixel(restraint_file, &rgba[0], &rgba[1], &rgba[2]);
+            } else if (restraint_profile != VISUAL_RESTRAINT_STAGE_NONE) {
+                visualRestraintApplyEnvironmentPixel(restraint_profile, &rgba[0], &rgba[1], &rgba[2]);
             }
         }
     }
@@ -917,11 +927,20 @@ static void import_texture(int i, int tile, bool importReplacement) {
     const s32 visual_restraint_file = fmt == G_IM_FMT_CI && rdp.palette_fmt == G_TT_RGBA16
         ? visualRestraintFindCharacterCiTextureFile(orig_addr, loaded_texture.full_size_bytes)
         : -1;
+    const enum visualrestraintstageprofile visual_restraint_profile =
+        fmt == G_IM_FMT_CI && rdp.palette_fmt == G_TT_RGBA16
+        ? visualRestraintFindEnvironmentCiTextureProfile(orig_addr, loaded_texture.full_size_bytes)
+        : VISUAL_RESTRAINT_STAGE_NONE;
+    const s32 visual_restraint_identity = visual_restraint_file >= 0
+        ? visual_restraint_file
+        : (visual_restraint_profile != VISUAL_RESTRAINT_STAGE_NONE
+            ? -1000 - (s32)visual_restraint_profile
+            : -1);
 
     TextureCacheKey key;
     if (fmt == G_IM_FMT_CI) {
         key = { orig_addr, { rdp.palette_addrs[0], rdp.palette_addrs[1] }, fmt, siz, palette_index,
-            visual_restraint_file };
+            visual_restraint_identity };
     } else {
         key = { orig_addr, {}, fmt, siz, palette_index, -1 };
     }

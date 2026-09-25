@@ -1186,9 +1186,8 @@ static bool preprocessRestrainedCharacterTexture(s32 fileNum, u8 *data, u32 maxS
 		return true;
 	}
 
-	// Paletted CI textures require palette-aware treatment; leave them untouched
-	// rather than risk corrupting indices. They can be added once runtime asset
-	// inspection confirms which target body textures actually use CI.
+	// CI textures are treated after palette lookup by the PC renderer. Their
+	// source indices remain untouched.
 	return false;
 }
 
@@ -1206,7 +1205,7 @@ static u32 preprocessEmbeddedCiTextureSize(u8 width, u8 height, s32 format)
 	return 0;
 }
 
-static void preprocessRegisterCharacterCiTextures(u8 *base)
+static void preprocessRegisterCiTextures(u8 *base)
 {
 	const s32 fileNum = preprocessGetFileNum();
 	struct modeldef *mdl = (struct modeldef *)base;
@@ -1232,7 +1231,10 @@ static void preprocessRegisterCharacterCiTextures(u8 *base)
 		}
 
 		u8 *texdata = PD_PTR_BASEOFS(texconfigs[i].textureptr, base, ofs);
-		visualRestraintRegisterCharacterCiTexture(texdata, size, fileNum);
+		const enum visualrestraintstageprofile profile = preprocessIsEnvironmentPropFile(fileNum)
+			? visualRestraintGetStageProfile(preprocessGetBgStage())
+			: VISUAL_RESTRAINT_STAGE_NONE;
+		visualRestraintRegisterCiTexture(texdata, size, fileNum, profile);
 	}
 }
 
@@ -1303,7 +1305,7 @@ u8 *preprocessModelFile(u8 *data, u32 size, u32 *outSize)
 	}
 	
 	memcpy(data, dst, newSize);
-	preprocessRegisterCharacterCiTextures(data);
+	preprocessRegisterCiTextures(data);
 	sysMemFree(dst);
 
 	*outSize = newSize;
